@@ -23,15 +23,15 @@ set ( ${CLP}_SOURCE ${CLP}.cxx)
 generateclp(${CLP}_SOURCE ${CLP}.xml)
 add_executable(${CLP} ${${CLP}_SOURCE})
 target_link_libraries (${CLP} ${ITK_LIBRARIES} ${DCMTK_LIBRARIES} oflog ${ZLIB_LIBRARIES})
-set(DWICompareEXE ${DicomToNrrdConverter_BINARY_DIR}/../bin/${CLP})
+set(DWICompareEXE ${DicomToNrrdConverter_BINARY_DIR}/ExtendedTesting/${CLP})
 
 set (CLP DicomToNrrdConverter)
 add_executable(${CLP}Test ${CLP}Test.cxx)
 add_dependencies(${CLP}Test ${CLP})
 target_link_libraries(${CLP}Test ${ITK_LIBRARIES} ${DCMTK_LIBRARIES} oflog ${ZLIB_LIBRARIES})
 
-set (DicomToNrrdConverterEXE ${Slicer_LAUNCH_COMMAND} ${DicomToNrrdConverter_BINARY_DIR}/../bin/${CLP} )
-set (DicomToNrrdConverter_TESTS ${Slicer_LAUNCH_COMMAND} ${DicomToNrrdConverter_BINARY_DIR}/../bin/${CLP}Test )
+set (DicomToNrrdConverterEXE ${Slicer_LAUNCH_COMMAND} ${DicomToNrrdConverter_BINARY_DIR}/${CLP} )
+set (DicomToNrrdConverter_TESTS ${Slicer_LAUNCH_COMMAND} ${DicomToNrrdConverter_BINARY_DIR}/ExtendedTesting/${CLP}Test )
 
 if(NOT SETIFEMPTY)
 macro(SETIFEMPTY)

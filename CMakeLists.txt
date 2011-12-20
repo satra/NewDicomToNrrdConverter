@@ -11,6 +11,15 @@ set(LIB_PREFIX lib)
 set(LIB_SUFFIX .a)
 endif()
 
+set(COMMON_CMAKE_FLAGS
+  -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
+  -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
+  -DCMAKE_CXX_COMPILER:FILEPATH=${CMAKE_CXX_COMPILER}
+  -DCMAKE_C_FLAGS:STRING=${CMAKE_C_FLAGS}
+  -DCMAKE_CXX_FLAGS:STRING=${CMAKE_CXX_FLAGS}
+  -DBUILD_TESTING:BOOL=OFF
+)
+
 # Set CMake OSX variable to pass down the external project
 set(CMAKE_OSX_EXTERNAL_PROJECT_ARGS)
 if(APPLE)
@@ -26,28 +35,29 @@ ExternalProject_add(SlicerExecutionModel
   GIT_REPOSITORY git://github.com/Chaircrusher/SlicerExecutionModel.git
   GIT_TAG "origin/master"
   UPDATE_COMMAND ""
-  BINARY_DIR ${proj}-build
+  BINARY_DIR SlicerExecutionModel-build
   CMAKE_ARGS
   ${COMMON_EXTERNAL_PROJECT_ARGS}
   ${CMAKE_OSX_EXTERNAL_PROJECT_ARGS}
   -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
-  -DBUILD_TESTING:BOOL=OFF
+  ${COMMON_CMAKE_FLAGS}
   -DITK_DIR:PATH=${ITK_DIR}
   INSTALL_COMMAND ""
   )
-set(SlicerExecutionModel_DIR ${CMAKE_BINARY_DIR}/${proj}-build)
+set(SlicerExecutionModel_DIR ${CMAKE_BINARY_DIR}/SlicerExecutionModel-build)
 
 ExternalProject_add(libtiff
   URL ftp://dicom.offis.de/pub/dicom/offis/software/dcmtk/dcmtk360/support/tiff-3.9.4.tar.gz
   URL_MD5 2006c1bdd12644dbf02956955175afd6
-  CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${PREREQS}
+  CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${PREREQS} CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
   )
 
 ExternalProject_add(dcmtk
   GIT_REPOSITORY "git://git.dcmtk.org/dcmtk.git"
-  GIT_TAG 085525e643cab5ac82
+  GIT_TAG 915b1c59e08459cd934925c0599c78a43e4b2b1f
   UPDATE_COMMAND ""
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${PREREQS}
+  ${COMMON_CMAKE_FLAGS}
   -DDCMTK_WITH_XML:BOOL=ON
   -DDCMTK_WITH_PRIVATE_TAGS:BOOL=ON
   -DTIFF_INCLUDE_DIR:PATH=${PREREQS}/include
@@ -67,13 +77,7 @@ ExternalProject_add(${proj}
   -DRUN_EXTENDED_LOCAL_TESTING:BOOL=ON
   -DITK_DIR:PATH=${ITK_DIR}
   -DDCMTK_DIR:PATH=${PREREQS}
+  ${COMMON_CMAKE_FLAGS}
   -DSlicerExecutionModel_DIR:PATH=${SlicerExecutionModel_DIR}
 )
 
-set(BuildStamp ${CMAKE_CURRENT_BINARY_DIR}/${proj}-prefix/src/${proj}-stamp/${proj}-build)
-
-ExternalProject_Add_Step(${proj} force-build
-  COMMAND ${CMAKE_COMMAND} -E remove ${BuildStamp}
-  DEPENDEES build done
-  ALWAYS 1
-)
