@@ -28,7 +28,7 @@ set(DWICompareEXE ${DicomToNrrdConverter_BINARY_DIR}/ExtendedTesting/${CLP})
 set (CLP DicomToNrrdConverter)
 add_executable(${CLP}Test ${CLP}Test.cxx)
 add_dependencies(${CLP}Test ${CLP})
-target_link_libraries(${CLP}Test ${ITK_LIBRARIES} ${DCMTK_LIBRARIES} oflog ${ZLIB_LIBRARIES})
+target_link_libraries(${CLP}Test ${ITK_LIBRARIES} ${DCMTK_LIBRARIES} oflog ${ZLIB_LIBRARIES} ${ICONV_LIBRARY})
 
 set (DicomToNrrdConverterEXE ${Slicer_LAUNCH_COMMAND} ${DicomToNrrdConverter_BINARY_DIR}/${CLP} )
 set (DicomToNrrdConverter_TESTS ${Slicer_LAUNCH_COMMAND} ${DicomToNrrdConverter_BINARY_DIR}/ExtendedTesting/${CLP}Test )

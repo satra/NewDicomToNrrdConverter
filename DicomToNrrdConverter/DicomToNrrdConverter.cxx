@@ -144,6 +144,7 @@ public:
       double *array;
       this->GetElementFD(group,element,array,throwException);
       target = array[0];
+      return EXIT_SUCCESS;
     }
   int GetElementDS(unsigned short group,
                   unsigned short element,
@@ -1801,7 +1802,8 @@ int main(int argc, char *argv[])
       dcmFileReader.GetElementSQ(0x5200,0x9230,perFrameFunctionalGroup);
       int nItems = perFrameFunctionalGroup.card();
 
-      for(unsigned long i = 0; i < perFrameFunctionalGroup.card(); ++i)
+      for(unsigned long i = 0; 
+          i < static_cast<unsigned long>(perFrameFunctionalGroup.card()); ++i)
         {
         DCMTKSequence curSequence;
         perFrameFunctionalGroup.GetSequence(i,curSequence);

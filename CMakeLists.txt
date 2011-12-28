@@ -64,7 +64,16 @@ ExternalProject_add(dcmtk
   -DTIFF_LIBRARY:FILEPATH=${PREREQS}/lib/${LIB_PREFIX}tiff${LIB_SUFFIX}
   DEPENDS libtiff
 )
+set(dcmtkPatchScript ${CMAKE_CURRENT_LIST_DIR}/dcmtkPatchScript.cmake)
+set(dcmtkFileToFix ${CMAKE_CURRENT_BINARY_DIR}/dcmtk-prefix/src/dcmtk/CMake/GenerateDCMTKConfigure.cmake)
 
+ExternalProject_Add_Step(dcmtk fixGenerateConfig
+  COMMENT "One step of the configuration is broke with respect to strerror_r"
+  DEPENDEES download
+  DEPENDERS configure
+  ALWAYS 1
+  COMMAND ${CMAKE_COMMAND} -Dfixfile=${dcmtkFileToFix} -P ${dcmtkPatchScript}
+)
 
 set(proj DicomToNRRDConverter)
 ExternalProject_add(${proj}
