@@ -43,6 +43,8 @@ macro(SETIFEMPTY)
 endmacro(SETIFEMPTY KEY VALUE)
 endif(NOT SETIFEMPTY)
 
+set(TEMP ${CMAKE_CURRENT_BINARY_DIR})
+
 include(${BRAINS_CMAKE_HELPER_DIR}/MIDAS.cmake)
 SETIFEMPTY(MIDAS_REST_URL "http://midas.kitware.com/api/rest" CACHE STRING "The MIDAS server where testing data resides")
 
@@ -61,7 +63,7 @@ midas_add_test(NAME DicomToNrrdConverterGeSignaHdxTest COMMAND ${CMAKE_COMMAND}
         -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
         -D TEST_COMPARE_PROGRAM=${DWICompareEXE}
         -D TEST_BASELINE=MIDAS{GeSignaHDx.nrrd.md5}
-        -D TEST_INPUT=MIDAS_TGZ{GeSignaHDx.md5}
+        -D TEST_INPUT=MIDAS_TGZ{GeSignaHDx.tar.gz.md5}
         -D TEST_TEMP_OUTPUT=${TEMP}/GeSignaHDxTest.nrrd
         -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
         )
@@ -70,7 +72,7 @@ midas_add_test(NAME DicomToNrrdConverterGeSignaHdxBigEndianTest COMMAND ${CMAKE_
   ${CMAKE_COMMAND} -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
                    -D TEST_COMPARE_PROGRAM=${DWICompareEXE}
                    -D TEST_BASELINE=MIDAS{GeSignaHDx.nrrd.md5}
-                   -D TEST_INPUT=MIDAS_TGZ{GeSignaHDxBigEndian.md5}
+                   -D TEST_INPUT=MIDAS_TGZ{GeSignaHDxBigEndian.tar.gz.md5}
                    -D TEST_TEMP_OUTPUT=${TEMP}/GeSignaHDxBigEndianTest.nrrd
                    -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
   )
@@ -79,7 +81,7 @@ midas_add_test(NAME DicomToNrrdConverterGeSignaHdxBMatrixTest COMMAND ${CMAKE_CO
   ${CMAKE_COMMAND} -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
                    -D TEST_COMPARE_PROGRAM=${DWICompareEXE}
                    -D TEST_BASELINE=MIDAS{GeSignaHDx.nrrd.md5}
-                   -D TEST_INPUT=MIDAS_TGZ{GeSignaHDx.md5}
+                   -D TEST_INPUT=MIDAS_TGZ{GeSignaHDx.tar.gz.md5}
                    -D TEST_TEMP_OUTPUT=${TEMP}/GeSignaHDxTest.nrrd
                    -D TEST_PROGRAM_ARGS=--useBMatrixGradientDirections
                    -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
@@ -89,7 +91,7 @@ midas_add_test(NAME DicomToNrrdConverterGeSignaHdxtTest COMMAND ${CMAKE_COMMAND}
   ${CMAKE_COMMAND} -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
                    -D TEST_COMPARE_PROGRAM=${DWICompareEXE}
                    -D TEST_BASELINE=MIDAS{GeSignaHDxt.nrrd.md5}
-                   -D TEST_INPUT=MIDAS_TGZ{GeSignaHDxt.md5}
+                   -D TEST_INPUT=MIDAS_TGZ{GeSignaHDxt.tar.gz.md5}
                    -D TEST_TEMP_OUTPUT=${TEMP}/GeSignaHDxtTest.nrrd
                    -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
   )
@@ -98,7 +100,7 @@ midas_add_test(NAME DicomToNrrdConverterGeSignaHdxtBMatrixTest COMMAND ${CMAKE_C
   ${CMAKE_COMMAND} -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
                    -D TEST_COMPARE_PROGRAM=${DWICompareEXE}
                    -D TEST_BASELINE=MIDAS{GeSignaHDxt.nrrd.md5}
-                   -D TEST_INPUT=MIDAS_TGZ{GeSignaHDxt.md5}
+                   -D TEST_INPUT=MIDAS_TGZ{GeSignaHDxt.tar.gz.md5}
                    -D TEST_TEMP_OUTPUT=${TEMP}/GeSignaHDxtTest.nrrd
                    -D TEST_PROGRAM_ARGS=--useBMatrixGradientDirections
                    -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
@@ -108,7 +110,7 @@ midas_add_test(NAME DicomToNrrdConverterPhilipsAchievaTest COMMAND ${CMAKE_COMMA
   ${CMAKE_COMMAND} -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
                    -D TEST_COMPARE_PROGRAM=${DWICompareEXE}
                    -D TEST_BASELINE=MIDAS{PhilipsAchieva1.nrrd.md5}
-                   -D TEST_INPUT=MIDAS_TGZ{PhilipsAchieva1.md5}
+                   -D TEST_INPUT=MIDAS_TGZ{PhilipsAchieva1.tar.gz.md5}
                    -D TEST_TEMP_OUTPUT=${TEMP}/PhilipsAchieva1Test.nrrd
                    -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
   )
@@ -117,7 +119,7 @@ midas_add_test(NAME DicomToNrrdConverterPhilipsAchievaBigEndianTest COMMAND ${CM
   ${CMAKE_COMMAND} -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
                    -D TEST_COMPARE_PROGRAM=${DWICompareEXE}
                    -D TEST_BASELINE=MIDAS{PhilipsAchieva1.nrrd.md5}
-                   -D TEST_INPUT=MIDAS_TGZ{PhilipsAchievaBigEndian1.md5}
+                   -D TEST_INPUT=MIDAS_TGZ{PhilipsAchievaBigEndian1.tar.gz.md5}
                    -D TEST_TEMP_OUTPUT=${TEMP}/PhilipsAchievaBigEndian1Test.nrrd
                    -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
   )
@@ -126,7 +128,7 @@ midas_add_test(NAME DicomToNrrdConverterPhilipsAchievaBMatrixTest COMMAND ${CMAK
   ${CMAKE_COMMAND} -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
                    -D TEST_COMPARE_PROGRAM=${DWICompareEXE}
                    -D TEST_BASELINE=MIDAS{PhilipsAchieva1.nrrd.md5}
-                   -D TEST_INPUT=MIDAS_TGZ{PhilipsAchieva1.md5}
+                   -D TEST_INPUT=MIDAS_TGZ{PhilipsAchieva1.tar.gz.md5}
                    -D TEST_TEMP_OUTPUT=${TEMP}/PhilipsAchieva1Test.nrrd
                    -D TEST_PROGRAM_ARGS=--useBMatrixGradientDirections
                    -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
@@ -136,7 +138,7 @@ midas_add_test(DicomToNrrdConverterPhilipsAchieva2Test COMMAND ${CMAKE_COMMAND}
   ${CMAKE_COMMAND} -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
                    -D TEST_COMPARE_PROGRAM=${DWICompareEXE}
                    -D TEST_BASELINE=MIDAS{PhilipsAchieva2.nrrd.md5}
-                   -D TEST_INPUT=MIDAS_TGZ{PhilipsAchieva2.md5}
+                   -D TEST_INPUT=MIDAS_TGZ{PhilipsAchieva2.tar.gz.md5}
                    -D TEST_TEMP_OUTPUT=${TEMP}/PhilipsAchieva2Test.nrrd
                    -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
   )
@@ -145,7 +147,7 @@ midas_add_test(NAME DicomToNrrdConverterPhilipsAchieva2BMatrixTest COMMAND ${CMA
   ${CMAKE_COMMAND} -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
                    -D TEST_COMPARE_PROGRAM=${DWICompareEXE}
                    -D TEST_BASELINE=MIDAS{PhilipsAchieva2.nrrd.md5}
-                   -D TEST_INPUT=MIDAS_TGZ{PhilipsAchieva2.md5}
+                   -D TEST_INPUT=MIDAS_TGZ{PhilipsAchieva2.tar.gz.md5}
                    -D TEST_TEMP_OUTPUT=${TEMP}/PhilipsAchieva2Test.nrrd
                    -D TEST_PROGRAM_ARGS=--useBMatrixGradientDirections
                    -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
@@ -155,7 +157,7 @@ midas_add_test(NAME DicomToNrrdConverterPhilipsAchieva3Test COMMAND ${CMAKE_COMM
   ${CMAKE_COMMAND} -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
                    -D TEST_COMPARE_PROGRAM=${DWICompareEXE}
                    -D TEST_BASELINE=MIDAS{PhilipsAchieva3.nrrd.md5}
-                   -D TEST_INPUT=MIDAS_TGZ{PhilipsAchieva3.md5}
+                   -D TEST_INPUT=MIDAS_TGZ{PhilipsAchieva3.tar.gz.md5}
                    -D TEST_TEMP_OUTPUT=${TEMP}/PhilipsAchieva3Test.nrrd
                    -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
   )

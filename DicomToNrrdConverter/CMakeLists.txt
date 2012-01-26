@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 2.8.0)
 
 enable_testing()
 
-find_package(ITK REQUIRED)
+find_package(ITK 4 REQUIRED)
 
 find_package(DCMTK REQUIRED)
 

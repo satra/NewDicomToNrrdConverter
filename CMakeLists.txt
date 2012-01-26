@@ -18,6 +18,7 @@ set(COMMON_CMAKE_FLAGS
   -DCMAKE_C_FLAGS:STRING=${CMAKE_C_FLAGS}
   -DCMAKE_CXX_FLAGS:STRING=${CMAKE_CXX_FLAGS}
   -DBUILD_TESTING:BOOL=OFF
+  -DBUILD_SHARED_LIBS:BOOL=OFF
 )
 
 # Set CMake OSX variable to pass down the external project
@@ -29,7 +30,41 @@ if(APPLE)
     -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET})
 endif()
 
-find_package(ITK 4 REQUIRED)
+if(NOT USE_SYSTEM_ITK)
+  set(ITK_REPOSITORY git://itk.org/ITK.git)
+  set(ITK_TAG_COMMAND GIT_TAG v4.0.0)
+  ExternalProject_Add(ITK
+    GIT_REPOSITORY ${ITK_REPOSITORY}
+    ${ITK_TAG_COMMAND}
+    UPDATE_COMMAND ""
+    INSTALL_COMMAND ""
+    SOURCE_DIR ITK
+    BINARY_DIR ITK-build
+    CMAKE_GENERATOR ${gen}
+    CMAKE_ARGS
+      ${COMMON_CMAKE_FLAGS}
+      -DBUILD_TESTING:BOOL=OFF
+      -DBUILD_EXAMPLES:BOOL=OFF
+      -DITK_LEGACY_REMOVE:BOOL=ON
+      -DITK_BUILD_ALL_MODULES:BOOL=ON
+      -DITK_USE_REVIEW:BOOL=ON
+      -DBUILD_SHARED_LIBS:BOOL=${BUILD_SHARED_LIBS}
+      -DINSTALL_WRAP_ITK_COMPATIBILITY:BOOL=OFF
+    )
+  set(ITK_DIR ${CMAKE_CURRENT_BINARY_DIR}/ITK-build)
+else()
+  ExternalProject_Add(ITK
+    SOURCE_DIR ITK
+    BINARY_DIR ITK-build
+    DOWNLOAD_COMMAND ""
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
+    DEPENDS
+    ${ITKv4_DEPENDENCIES}
+    )
+  find_package(ITK 4 REQUIRED)
+endif()
 
 ExternalProject_add(SlicerExecutionModel
   GIT_REPOSITORY git://github.com/Chaircrusher/SlicerExecutionModel.git
@@ -43,6 +78,7 @@ ExternalProject_add(SlicerExecutionModel
   ${COMMON_CMAKE_FLAGS}
   -DITK_DIR:PATH=${ITK_DIR}
   INSTALL_COMMAND ""
+  DEPENDS ITK
   )
 set(SlicerExecutionModel_DIR ${CMAKE_BINARY_DIR}/SlicerExecutionModel-build)
 
@@ -77,7 +113,7 @@ ExternalProject_Add_Step(dcmtk fixGenerateConfig
 
 set(proj DicomToNRRDConverter)
 ExternalProject_add(${proj}
-  DEPENDS dcmtk SlicerExecutionModel
+  DEPENDS dcmtk SlicerExecutionModel ITK
   DOWNLOAD_COMMAND ""
   INSTALL_COMMAND  ""
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${proj}

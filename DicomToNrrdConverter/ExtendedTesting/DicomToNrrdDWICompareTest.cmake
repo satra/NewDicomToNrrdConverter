@@ -17,10 +17,10 @@ if( NOT TEST_TEMP_OUTPUT )
 endif( NOT TEST_TEMP_OUTPUT )
 
 # Run the compare program to make sure it built correctly
-execute_process(
-  COMMAND ${TEST_COMPARE_PROGRAM} --help
-  RESULT_VARIABLE TEST_RESULT
-  )
+# execute_process(
+#   COMMAND ${TEST_COMPARE_PROGRAM} --help
+#   RESULT_VARIABLE TEST_RESULT
+#   )
 
 # if the return value is !=0 bail out
 if( TEST_RESULT )
@@ -33,8 +33,12 @@ if(NOT EXISTS ${TEST_BASELINE})
 endif( NOT EXISTS ${TEST_BASELINE})
 
 # run the test program, capture the stdout/stderr and the result var
+set(Test_Command_Line
+  ${TEST_PROGRAM} --inputDicomDirectory ${TEST_INPUT} --outputVolume ${TEST_TEMP_OUTPUT} ${TEST_PROGRAM_ARGS}
+  )
+message("Test_Command_Line=${Test_Command_Line}")
 execute_process(
-  COMMAND ${TEST_PROGRAM} --inputDicomDirectory ${TEST_INPUT} --outputVolume ${TEST_TEMP_OUTPUT} ${TEST_PROGRAM_ARGS}
+  COMMAND ${Test_Command_Line}
   ERROR_VARIABLE TEST_ERROR
   RESULT_VARIABLE TEST_RESULT
   )
@@ -44,9 +48,13 @@ if( TEST_RESULT )
   message( FATAL_ERROR "Failed: Test program ${TEST_PROGRAM} exited != 0.\n${TEST_ERROR}" )
 endif( TEST_RESULT )
 
+set(Test_Compare_Command_Line
+  ${TEST_COMPARE_PROGRAM} --inputVolume2 ${TEST_TEMP_OUTPUT} --inputVolume1 ${TEST_BASELINE}
+  )
+message("Test_Compare_Command_Line=${Test_Compare_Command_Line}")
 # now compare the output with the reference
 execute_process(
-  COMMAND ${TEST_COMPARE_PROGRAM} --inputVolume2 ${TEST_TEMP_OUTPUT} --inputVolume1 ${TEST_BASELINE}
+  COMMAND ${Test_Compare_Command_Line}
   RESULT_VARIABLE TEST_RESULT
   )
 
