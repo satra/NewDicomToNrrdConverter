@@ -103,17 +103,20 @@ ExternalProject_add(dcmtk
 
 
 set(dcmtkPatchScript ${CMAKE_CURRENT_LIST_DIR}/dcmtkPatchScript.cmake)
-set(dcmtkFileToFix ${CMAKE_CURRENT_BINARY_DIR}/dcmtk-prefix/src/dcmtk/CMake/GenerateDCMTKConfigure.cmake)
-
+set(dcmtkGenConfig ${CMAKE_CURRENT_BINARY_DIR}/dcmtk-prefix/src/dcmtk/CMake/GenerateDCMTKConfigure.cmake)
+set(dcmtk3rdParty ${CMAKE_CURRENT_BINARY_DIR}/dcmtk-prefix/src/dcmtk/CMake/3rdparty.cmake)
 ExternalProject_Add_Step(dcmtk fixGenerateConfig
   COMMENT "One step of the configuration is broke with respect to strerror_r"
   DEPENDEES download
   DEPENDERS configure
   ALWAYS 1
-  COMMAND ${CMAKE_COMMAND} -Dfixfile=${dcmtkFileToFix} -P ${dcmtkPatchScript}
+  COMMAND ${CMAKE_COMMAND}
+  -Ddcmtk3rdParty=${dcmtk3rdParty}
+  -DdcmtkGenConfig=${dcmtkGenConfig}
+  -P ${dcmtkPatchScript}
 )
 
-set(proj DicomToNRRDConverter)
+set(proj DicomToNrrdConverter)
 ExternalProject_add(${proj}
   DEPENDS dcmtk SlicerExecutionModel ITK
   DOWNLOAD_COMMAND ""
