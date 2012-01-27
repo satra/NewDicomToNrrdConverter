@@ -90,7 +90,7 @@ ExternalProject_add(libtiff
 
 ExternalProject_add(dcmtk
   GIT_REPOSITORY "git://git.dcmtk.org/dcmtk.git"
-  GIT_TAG 915b1c59e08459cd934925c0599c78a43e4b2b1f
+  GIT_TAG 140ab83172d639066e757682ce252303196c6900
   UPDATE_COMMAND ""
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${PREREQS}
   ${COMMON_CMAKE_FLAGS}
@@ -100,6 +100,8 @@ ExternalProject_add(dcmtk
   -DTIFF_LIBRARY:FILEPATH=${PREREQS}/lib/${LIB_PREFIX}tiff${LIB_SUFFIX}
   DEPENDS libtiff
 )
+
+
 set(dcmtkPatchScript ${CMAKE_CURRENT_LIST_DIR}/dcmtkPatchScript.cmake)
 set(dcmtkFileToFix ${CMAKE_CURRENT_BINARY_DIR}/dcmtk-prefix/src/dcmtk/CMake/GenerateDCMTKConfigure.cmake)
 
