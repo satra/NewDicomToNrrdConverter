@@ -82,12 +82,24 @@ ExternalProject_add(SlicerExecutionModel
   )
 set(SlicerExecutionModel_DIR ${CMAKE_BINARY_DIR}/SlicerExecutionModel-build)
 
+ExternalProject_add(libjpeg
+  URL http://www.ijg.org/files/jpegsrc.v8c.tar.gz
+  URL_MD5 a2c10c04f396a9ce72894beb18b4e1f9
+  CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${PREREQS}
+  --enable-static=yes
+  --enable-shared=no
+  CC=${CMAKE_C_COMPILER}
+  CXX=${CMAKE_CXX_COMPILER}
+  )
+
 ExternalProject_add(libtiff
   URL ftp://dicom.offis.de/pub/dicom/offis/software/dcmtk/dcmtk360/support/tiff-3.9.4.tar.gz
   URL_MD5 2006c1bdd12644dbf02956955175afd6
   CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${PREREQS} CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
+  DEPENDS libjpeg
   )
 
+if(NOT APPLE)
 ExternalProject_add(libiconv
   URL http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.14.tar.gz
   URL_MD5 e34509b1623cec449dfeb73d7ce9c6c6
@@ -99,6 +111,9 @@ ExternalProject_add(libiconv
   CC=${CMAKE_C_COMPILER}
   CXX=${CMAKE_CXX_COMPILER}
   )
+  set(ICONV_LIB_FLAGS -DICONV_LIBRARY:FILEPATH=${PREREQS}/lib/libiconv.a)
+  set(ICONV_DEP libiconv)
+endif(NOT APPLE)
 
 ExternalProject_add(dcmtk
   GIT_REPOSITORY "git://git.dcmtk.org/dcmtk.git"
@@ -108,6 +123,7 @@ ExternalProject_add(dcmtk
   ${COMMON_CMAKE_FLAGS}
   -DDCMTK_WITH_XML:BOOL=ON
   -DDCMTK_WITH_PRIVATE_TAGS:BOOL=ON
+  -DJPEG_DIR:PATH=${PREREQS}/lib
   -DTIFF_INCLUDE_DIR:PATH=${PREREQS}/include
   -DTIFF_LIBRARY:FILEPATH=${PREREQS}/lib/${LIB_PREFIX}tiff${LIB_SUFFIX}
   DEPENDS libtiff
@@ -128,8 +144,9 @@ ExternalProject_Add_Step(dcmtk fixGenerateConfig
 )
 
 set(proj DicomToNrrdConverter)
+
 ExternalProject_add(${proj}
-  DEPENDS dcmtk SlicerExecutionModel ITK libiconv
+  DEPENDS dcmtk SlicerExecutionModel ITK ${ICONV_DEP}
   DOWNLOAD_COMMAND ""
   INSTALL_COMMAND  ""
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${proj}
@@ -138,7 +155,7 @@ ExternalProject_add(${proj}
   -DRUN_EXTENDED_LOCAL_TESTING:BOOL=ON
   -DITK_DIR:PATH=${ITK_DIR}
   -DDCMTK_DIR:PATH=${PREREQS}
-  -DICONV_LIBRARY:FILEPATH=${PREREQS}/lib/libiconv.a
+  ${ICONV_LIB_FLAGS}
   ${COMMON_CMAKE_FLAGS}
   -DSlicerExecutionModel_DIR:PATH=${SlicerExecutionModel_DIR}
 )

@@ -41,6 +41,7 @@ if(${ICONV_LIBRARY} STREQUAL "ICONV_LIB-NOTFOUND")
   message(FATAL_ERROR "Can't locate IConv library")
 endif()
 
+
 generateclp(${CLP}_SOURCE ${CLP}.xml)
 
 link_directories(${DCMTK_DIR}/lib)
