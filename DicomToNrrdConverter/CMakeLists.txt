@@ -10,6 +10,16 @@ find_package(ITK 4 REQUIRED)
 
 find_package(DCMTK REQUIRED)
 
+foreach(lib oflog ofstd )
+  find_library(DCMTK_${lib}_LIBRARY
+    ${lib}
+    PATHS ${DCMTK_DIR}/lib
+    )
+  if(DCMTK_${lib}_LIBRARY)
+    list(APPEND DCMTK_LIBRARIES ${DCMTK_${lib}_LIBRARY})
+  endif()
+endforeach()
+
 find_package(ZLIB REQUIRED)
 
 #message("DCMTK_INCLUDE_DIRS=${DCMTK_INCLUDE_DIRS}")
@@ -37,12 +47,12 @@ link_directories(${DCMTK_DIR}/lib)
 
 add_executable(${CLP} ${${CLP}_SOURCE})
 
-message("DCMTK Lib dir ${DCMTK_DIR}/lib}")
+message("DCMTK_LIBRARIES=${DCMTK_LIBRARIES}")
 target_link_libraries (${CLP}
   ${ITK_LIBRARIES}
   ${DCMTK_LIBRARIES}
   ${ICONV_LIBRARY}
-  oflog ${ZLIB_LIBRARIES}
+  ${ZLIB_LIBRARIES}
   )
 set_target_properties(${CLP} PROPERTIES LABELS ${CLP})
 

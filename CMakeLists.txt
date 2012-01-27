@@ -88,6 +88,18 @@ ExternalProject_add(libtiff
   CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${PREREQS} CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
   )
 
+ExternalProject_add(libiconv
+  URL http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.14.tar.gz
+  URL_MD5 e34509b1623cec449dfeb73d7ce9c6c6
+#  GIT_REPOSITORY git://git.savannah.gnu.org/libiconv.git
+  UPDATE_COMMAND ""
+  CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${PREREQS}
+  --enable-static=yes
+  --enable-shared=no
+  CC=${CMAKE_C_COMPILER}
+  CXX=${CMAKE_CXX_COMPILER}
+  )
+
 ExternalProject_add(dcmtk
   GIT_REPOSITORY "git://git.dcmtk.org/dcmtk.git"
   GIT_TAG 140ab83172d639066e757682ce252303196c6900
@@ -109,7 +121,6 @@ ExternalProject_Add_Step(dcmtk fixGenerateConfig
   COMMENT "One step of the configuration is broke with respect to strerror_r"
   DEPENDEES download
   DEPENDERS configure
-  ALWAYS 1
   COMMAND ${CMAKE_COMMAND}
   -Ddcmtk3rdParty=${dcmtk3rdParty}
   -DdcmtkGenConfig=${dcmtkGenConfig}
@@ -118,7 +129,7 @@ ExternalProject_Add_Step(dcmtk fixGenerateConfig
 
 set(proj DicomToNrrdConverter)
 ExternalProject_add(${proj}
-  DEPENDS dcmtk SlicerExecutionModel ITK
+  DEPENDS dcmtk SlicerExecutionModel ITK libiconv
   DOWNLOAD_COMMAND ""
   INSTALL_COMMAND  ""
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${proj}
@@ -127,6 +138,7 @@ ExternalProject_add(${proj}
   -DRUN_EXTENDED_LOCAL_TESTING:BOOL=ON
   -DITK_DIR:PATH=${ITK_DIR}
   -DDCMTK_DIR:PATH=${PREREQS}
+  -DICONV_LIBRARY:FILEPATH=${PREREQS}/lib/libiconv.a
   ${COMMON_CMAKE_FLAGS}
   -DSlicerExecutionModel_DIR:PATH=${SlicerExecutionModel_DIR}
 )
