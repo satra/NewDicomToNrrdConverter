@@ -32,7 +32,7 @@ endif()
 
 if(NOT USE_SYSTEM_ITK)
   set(ITK_REPOSITORY git://itk.org/ITK.git)
-  set(ITK_TAG_COMMAND GIT_TAG v4.0.0)
+  set(ITK_TAG_COMMAND GIT_TAG v4.1.0)
   ExternalProject_Add(ITK
     GIT_REPOSITORY ${ITK_REPOSITORY}
     ${ITK_TAG_COMMAND}
