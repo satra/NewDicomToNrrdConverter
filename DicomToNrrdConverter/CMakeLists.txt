@@ -57,5 +57,13 @@ target_link_libraries (${CLP}
   )
 set_target_properties(${CLP} PROPERTIES LABELS ${CLP})
 
+add_executable(TestAddDictEntry TestAddDictEntry.cxx)
+target_link_libraries (TestAddDictEntry
+  ${DCMTK_LIBRARIES}
+  ${ICONV_LIBRARY}
+  ${ZLIB_LIBRARIES}
+  ${ITK_LIBRARIES}
+  )
+
 set(BRAINS_CMAKE_HELPER_DIR ${CMAKE_CURRENT_LIST_DIR})
 add_subdirectory(ExtendedTesting)
