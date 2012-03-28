@@ -710,11 +710,61 @@ AddDictEntry(DcmDictEntry *entry)
   dcmDataDict.unlock();
 }
 
+unsigned ascii2hex(char c)
+{
+  switch(c)
+    {
+    case '0': return 0;
+    case '1': return 1;
+    case '2': return 2;
+    case '3': return 3;
+    case '4': return 4;
+    case '5': return 5;
+    case '6': return 6;
+    case '7': return 7;
+    case '8': return 8;
+    case '9': return 9;
+    case 'a':
+    case 'A': return 10;
+    case 'b':
+    case 'B': return 11;
+    case 'c':
+    case 'C': return 12;
+    case 'd':
+    case 'D': return 13;
+    case 'e':
+    case 'E': return 14;
+    case 'f':
+    case 'F': return 15;
+    }
+  return 255; // should never happen
+}
+
+std::string ConvertFromOB(std::string &toConvert)
+{
+  // string format is nn\nn\nn...
+  std::string rval;
+  for(size_t pos = 0; pos < toConvert.size(); pos += 3)
+    {
+    unsigned char convert[2];
+    convert[0] = ascii2hex(toConvert[pos]);
+    convert[1] = ascii2hex(toConvert[pos+1]);
+    unsigned char conv = convert[0] << 4;
+    conv += convert[1];
+    rval.push_back(static_cast<unsigned char>(conv));
+    }
+  return rval;
+}
+
 static unsigned int ExtractSiemensDiffusionInformation(const std::string tagString,
                                                        const std::string nameString,
                                                        std::vector<double>& valueArray )
 {
   ::size_t atPosition = tagString.find( nameString );
+  if(atPosition == std::string::npos)
+    {
+    return 0;
+    }
   while( true )  // skip nameString inside a quotation
     {
     std::string nextChar = tagString.substr( atPosition+nameString.size(), 1 );
@@ -1297,7 +1347,7 @@ int main(int argc, char *argv[])
       // copy information stored in 0029,1010 into a string for parsing
       std::string tag;
       dcmFileReader.GetElementOB(0x0029,0x1010, tag);
-
+      tag = ConvertFromOB(tag);
       // parse SliceNormalVector from 0029,1010 tag
       std::vector<double> valueArray(0);
       int nItems = ExtractSiemensDiffusionInformation(tag, "SliceNormalVector", valueArray);
@@ -1609,6 +1659,7 @@ int main(int argc, char *argv[])
         {
         std::string diffusionInfoString;;
         allHeaders[k].GetElementOB( 0x0029, 0x1010, diffusionInfoString );
+        diffusionInfoString  = ConvertFromOB(diffusionInfoString);
 
         // parse B_value from 0029,1010 tag
         std::vector<double> valueArray(0);
@@ -1729,6 +1780,7 @@ int main(int argc, char *argv[])
           std::cout << "=======================================" << std::endl << std::endl;
           std::string diffusionInfoString;
           allHeaders[k].GetElementOB(0x0029, 0x1010, diffusionInfoString );
+          diffusionInfoString  = ConvertFromOB(diffusionInfoString);
 
           std::vector<double> valueArray;
           vnl_vector_fixed<double, 3> vect3d;
