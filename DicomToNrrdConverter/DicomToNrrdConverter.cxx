@@ -853,75 +853,75 @@ void
 AddFlagsToDictionary()
 {
   // relevant GE tags
-  static DcmDictEntry GEDictBValue(0x0043, 0x1039, DcmVR(EVR_IS),
-                                   "B Value of diffusion weighting", 1, 1, 0,true,
-                                   "dicomtonrrd");
-  static DcmDictEntry GEDictXGradient(0x0019, 0x10bb, DcmVR(EVR_DS),
-                                      "X component of gradient direction", 1, 1 , 0,true,
-                                      "dicomtonrrd");
-  static DcmDictEntry GEDictYGradient(0x0019, 0x10bc, DcmVR(EVR_DS),
-                                      "Y component of gradient direction", 1, 1 , 0,true,
-                                      "dicomtonrrd");
-  static DcmDictEntry GEDictZGradient(0x0019, 0x10bd, DcmVR(EVR_DS),
-                                      "Z component of gradient direction", 1, 1 , 0,true,
-                                      "dicomtonrrd");
+  DcmDictEntry *GEDictBValue = new DcmDictEntry(0x0043, 0x1039, DcmVR(EVR_IS),
+                                                "B Value of diffusion weighting", 1, 1, 0,true,
+                                                "dicomtonrrd");
+  DcmDictEntry *GEDictXGradient = new DcmDictEntry(0x0019, 0x10bb, DcmVR(EVR_DS),
+                                                   "X component of gradient direction", 1, 1 , 0,true,
+                                                   "dicomtonrrd");
+  DcmDictEntry *GEDictYGradient = new DcmDictEntry(0x0019, 0x10bc, DcmVR(EVR_DS),
+                                                   "Y component of gradient direction", 1, 1 , 0,true,
+                                                   "dicomtonrrd");
+  DcmDictEntry *GEDictZGradient = new DcmDictEntry(0x0019, 0x10bd, DcmVR(EVR_DS),
+                                                   "Z component of gradient direction", 1, 1 , 0,true,
+                                                   "dicomtonrrd");
 
   // relevant Siemens private tags
-  static DcmDictEntry SiemensMosiacParameters(0x0051, 0x100b, DcmVR(EVR_IS),
-                                              "Mosiac Matrix Size", 1, 1 , 0,true,
-                                              "dicomtonrrd");
-  static DcmDictEntry SiemensDictNMosiac(0x0019, 0x100a, DcmVR(EVR_US),
-                                         "Number of Images In Mosaic", 1, 1 , 0,true,
-                                         "dicomtonrrd");
-  static DcmDictEntry SiemensDictBValue(0x0019, 0x100c, DcmVR(EVR_IS),
-                                        "B Value of diffusion weighting", 1, 1 , 0,true,
-                                        "dicomtonrrd");
-  static DcmDictEntry SiemensDictDiffusionDirection(0x0019, 0x100e, DcmVR(EVR_FD),
-                                                    "Diffusion Gradient Direction", 3, 3 , 0,true,
-                                                    "dicomtonrrd");
-  static DcmDictEntry SiemensDictDiffusionMatrix(0x0019, 0x1027, DcmVR(EVR_FD),
-                                                 "Diffusion Matrix", 6, 6 , 0,true,
-                                                 "dicomtonrrd");
-  static DcmDictEntry SiemensDictShadowInfo(0x0029, 0x1010, DcmVR(EVR_OB),
-                                            "Siemens DWI Info", 1, 1 , 0,true,
-                                            "dicomtonrrd");
+  DcmDictEntry *SiemensMosiacParameters = new DcmDictEntry(0x0051, 0x100b, DcmVR(EVR_IS),
+                                                           "Mosiac Matrix Size", 1, 1 , 0,true,
+                                                           "dicomtonrrd");
+  DcmDictEntry *SiemensDictNMosiac = new DcmDictEntry(0x0019, 0x100a, DcmVR(EVR_US),
+                                                      "Number of Images In Mosaic", 1, 1 , 0,true,
+                                                      "dicomtonrrd");
+  DcmDictEntry *SiemensDictBValue = new DcmDictEntry(0x0019, 0x100c, DcmVR(EVR_IS),
+                                                     "B Value of diffusion weighting", 1, 1 , 0,true,
+                                                     "dicomtonrrd");
+  DcmDictEntry *SiemensDictDiffusionDirection = new DcmDictEntry(0x0019, 0x100e, DcmVR(EVR_FD),
+                                                                 "Diffusion Gradient Direction", 3, 3 , 0,true,
+                                                                 "dicomtonrrd");
+  DcmDictEntry *SiemensDictDiffusionMatrix = new DcmDictEntry(0x0019, 0x1027, DcmVR(EVR_FD),
+                                                              "Diffusion Matrix", 6, 6 , 0,true,
+                                                              "dicomtonrrd");
+  DcmDictEntry *SiemensDictShadowInfo = new DcmDictEntry(0x0029, 0x1010, DcmVR(EVR_OB),
+                                                         "Siemens DWI Info", 1, 1 , 0,true,
+                                                         "dicomtonrrd");
 
   // relevant Philips private tags
-  static DcmDictEntry PhilipsDictBValue (0x2001, 0x1003, DcmVR(EVR_FL),
-                                         "B Value of diffusion weighting", 1, 1 , 0,true,
-                                         "dicomtonrrd");
-  static DcmDictEntry PhilipsDictDiffusionDirection  (0x2001, 0x1004, DcmVR(EVR_CS),
-                                                      "Diffusion Gradient Direction", 1, 1 , 0,true,
+  DcmDictEntry *PhilipsDictBValue  = new DcmDictEntry(0x2001, 0x1003, DcmVR(EVR_FL),
+                                                      "B Value of diffusion weighting", 1, 1 , 0,true,
                                                       "dicomtonrrd");
-  static DcmDictEntry PhilipsDictDiffusionDirectionRL(0x2005, 0x10b0, DcmVR(EVR_FL),
-                                                      "Diffusion Direction R/L", 4, 4 , 0,true,
-                                                      "dicomtonrrd");
-  static DcmDictEntry PhilipsDictDiffusionDirectionAP(0x2005, 0x10b1, DcmVR(EVR_FL),
-                                                      "Diffusion Direction A/P", 4, 4 , 0,true,
-                                                      "dicomtonrrd");
-  static DcmDictEntry PhilipsDictDiffusionDirectionFH(0x2005, 0x10b2, DcmVR(EVR_FL),
-                                                      "Diffusion Direction F/H", 4, 4 , 0,true,
-                                                      "dicomtonrrd");
+  DcmDictEntry *PhilipsDictDiffusionDirection   = new DcmDictEntry(0x2001, 0x1004, DcmVR(EVR_CS),
+                                                                   "Diffusion Gradient Direction", 1, 1 , 0,true,
+                                                                   "dicomtonrrd");
+  DcmDictEntry *PhilipsDictDiffusionDirectionRL = new DcmDictEntry(0x2005, 0x10b0, DcmVR(EVR_FL),
+                                                                   "Diffusion Direction R/L", 4, 4 , 0,true,
+                                                                   "dicomtonrrd");
+  DcmDictEntry *PhilipsDictDiffusionDirectionAP = new DcmDictEntry(0x2005, 0x10b1, DcmVR(EVR_FL),
+                                                                   "Diffusion Direction A/P", 4, 4 , 0,true,
+                                                                   "dicomtonrrd");
+  DcmDictEntry *PhilipsDictDiffusionDirectionFH = new DcmDictEntry(0x2005, 0x10b2, DcmVR(EVR_FL),
+                                                                   "Diffusion Direction F/H", 4, 4 , 0,true,
+                                                                   "dicomtonrrd");
 
-  AddDictEntry(&GEDictBValue);
-  AddDictEntry(&GEDictXGradient);
-  AddDictEntry(&GEDictYGradient);
-  AddDictEntry(&GEDictZGradient);
+  AddDictEntry(GEDictBValue);
+  AddDictEntry(GEDictXGradient);
+  AddDictEntry(GEDictYGradient);
+  AddDictEntry(GEDictZGradient);
 
   // relevant Siemens private tags
-  AddDictEntry(&SiemensMosiacParameters);
-  AddDictEntry(&SiemensDictNMosiac);
-  AddDictEntry(&SiemensDictBValue);
-  AddDictEntry(&SiemensDictDiffusionDirection);
-  AddDictEntry(&SiemensDictDiffusionMatrix);
-  AddDictEntry(&SiemensDictShadowInfo);
+  AddDictEntry(SiemensMosiacParameters);
+  AddDictEntry(SiemensDictNMosiac);
+  AddDictEntry(SiemensDictBValue);
+  AddDictEntry(SiemensDictDiffusionDirection);
+  AddDictEntry(SiemensDictDiffusionMatrix);
+  AddDictEntry(SiemensDictShadowInfo);
 
   // relevant Philips private tags
-  AddDictEntry(&PhilipsDictBValue);
-  AddDictEntry(&PhilipsDictDiffusionDirection);
-  AddDictEntry(&PhilipsDictDiffusionDirectionRL);
-  AddDictEntry(&PhilipsDictDiffusionDirectionAP);
-  AddDictEntry(&PhilipsDictDiffusionDirectionFH);
+  AddDictEntry(PhilipsDictBValue);
+  AddDictEntry(PhilipsDictDiffusionDirection);
+  AddDictEntry(PhilipsDictDiffusionDirectionRL);
+  AddDictEntry(PhilipsDictDiffusionDirectionAP);
+  AddDictEntry(PhilipsDictDiffusionDirectionFH);
 
 }
 
