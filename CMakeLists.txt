@@ -119,8 +119,8 @@ endif(NOT APPLE)
 
 #  GIT_REPOSITORY https://github.com/commontk/DCMTK.git
 ExternalProject_add(dcmtk
-   GIT_REPOSITORY "git://git.dcmtk.org/dcmtk.git"
-   GIT_TAG e698f6e753c9faef1023fb62de507415d660b39a
+  GIT_REPOSITORY "git://git.dcmtk.org/dcmtk.git"
+  GIT_TAG 12690c81c05fbb0ec7087522bdc48dfea8aa528a
   UPDATE_COMMAND ""
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${PREREQS}
   ${COMMON_CMAKE_FLAGS}
@@ -129,7 +129,7 @@ ExternalProject_add(dcmtk
   -DJPEG_DIR:PATH=${PreReqs}
   -DTIFF_INCLUDE_DIR:PATH=${PREREQS}/include
   -DTIFF_LIBRARY:FILEPATH=${PREREQS}/lib/${LIB_PREFIX}tiff${LIB_SUFFIX}
-  DEPENDS libtiff
+  DEPENDS libtiff libjpeg
 )
 
 

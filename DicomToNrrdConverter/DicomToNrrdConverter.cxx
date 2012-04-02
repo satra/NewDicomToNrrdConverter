@@ -166,6 +166,11 @@ static unsigned int ExtractSiemensDiffusionInformation(const std::string tagStri
       {
       const int itemLength = *(infoAsCharPtr+offset+4);
       const int strideSize = static_cast<int> (ceil(static_cast<double>(itemLength)/4) * 4);
+      if( infoAsString.length() < offset + 16 + itemLength )
+        {
+        // data not available or incomplete
+        return 0;
+        }
       const std::string valueString = infoAsString.substr( offset+16, itemLength );
       valueArray.push_back( atof(valueString.c_str()) );
       offset += 16+strideSize;
@@ -1088,14 +1093,20 @@ int main(int argc, char *argv[])
               }
             DiffusionVectors.push_back(vect3d);
             }
-          valueArray.resize(0);
-          ExtractSiemensDiffusionInformation(diffusionInfoString, "B_value", valueArray);
-          bValues.push_back( valueArray[0] );
+          else
+            {
+            valueArray.resize(0);
+            ExtractSiemensDiffusionInformation(diffusionInfoString, "B_value", valueArray);
+            bValues.push_back( valueArray[0] );
+            vect3d[0] = 0;
+            vect3d[1] = 0;
+            vect3d[2] = 0;
+            DiffusionVectors.push_back(vect3d);
+            }
           }
-
-        if (bValues[k] > max_bValue)
+        if(bValues[ k / nStride ] > max_bValue)
           {
-          max_bValue = bValues[k];
+          max_bValue = bValues[k / nStride];
           }
         }
 
@@ -1108,7 +1119,7 @@ int main(int argc, char *argv[])
         {
         for (unsigned int k = 0; k < nSlice; k+=nStride)
           {
-          double scaling_factor = bValues[k] / max_bValue;
+          double scaling_factor = bValues[k / nStride] / max_bValue;
           gradient_scaling_factor.push_back(scaling_factor);
           }
 
@@ -1147,11 +1158,11 @@ int main(int argc, char *argv[])
 
             DiffusionVector_magnitude = sqrt((vect3d[0]*vect3d[0]) + (vect3d[1]*vect3d[1]) + (vect3d[2]*vect3d[2]));
 
-            if (gradient_scaling_factor[k] != 0.0)
+            if (gradient_scaling_factor[k / nStride] != 0.0)
               {
-              DiffusionVector_magnitude_difference = fabs(1.0 - (DiffusionVector_magnitude / gradient_scaling_factor[k]));
+              DiffusionVector_magnitude_difference = fabs(1.0 - (DiffusionVector_magnitude / gradient_scaling_factor[k / nStride]));
               std::cout << "DiffusionVector_magnitude_difference " << DiffusionVector_magnitude_difference << std::endl;
-              std::cout << "gradient_scaling_factor " << gradient_scaling_factor[k] << std::endl;
+              std::cout << "gradient_scaling_factor " << gradient_scaling_factor[k / nStride] << std::endl;
               std::cout << "DiffusionVector_magnitude " << DiffusionVector_magnitude << std::endl;
               if ((DiffusionVector_magnitude > 0.0) &&
                   (DiffusionVector_magnitude_difference > smallGradientThreshold) && (!useBMatrixGradientDirections))
