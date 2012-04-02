@@ -2,6 +2,7 @@
 #include <string>
 #include <sstream>
 #include "DicomToNrrdConverterCLP.h"
+
 #include "itkMacro.h"
 #include "itkGDCMSeriesFileNames.h"
 #include "itkGDCMImageIO.h"
@@ -14,673 +15,8 @@
 #include "itksys/Directory.hxx"
 #include "itksys/SystemTools.hxx"
 #include "itksys/Base64.h"
-#undef HAVE_SSTREAM   // 'twould be nice if people coded without using
-                                // incredibly generic macro names
-#include "osconfig.h" // make sure OS specific configuration is included first
 
-#define INCLUDE_CSTDIO
-#define INCLUDE_CSTRING
-#include "ofstdinc.h"
-#include "dcvrds.h"
-#include "dcdict.h"             // For DcmDataDictionary
-#include "dctk.h"          /* for various dcmdata headers */
-#include "cmdlnarg.h"      /* for prepareCmdLineArgs */
-#include "dcuid.h"         /* for dcmtk version name */
-#include "dcrledrg.h"      /* for DcmRLEDecoderRegistration */
-
-#include "dcmimage.h"     /* for DicomImage */
-#include "digsdfn.h"      /* for DiGSDFunction */
-#include "diciefn.h"      /* for DiCIELABFunction */
-
-#include "ofconapp.h"        /* for OFConsoleApplication */
-#include "ofcmdln.h"         /* for OFCommandLine */
-
-#include "diregist.h"     /* include to support color images */
-#include "ofstd.h"           /* for OFStandard */
-
-#define DCMTKException(body)                    \
-  {                                             \
-  if(throwException)                            \
-    {                                           \
-    itkGenericExceptionMacro(body);             \
-    }                                           \
-  else                                          \
-    {                                           \
-    std::cerr body;                             \
-    return EXIT_FAILURE;                        \
-    }                                           \
-  }
-
-class DCMTKSequence
-{
-public:
-  DCMTKSequence() : m_DcmSequenceOfItems(0) {}
-  void SetDcmSequenceOfItems(DcmSequenceOfItems *seq)
-    {
-      this->m_DcmSequenceOfItems = seq;
-    }
-  int card() { return this->m_DcmSequenceOfItems->card(); }
-  int GetSequence(unsigned long index,
-                  DCMTKSequence &target,bool throwException = true)
-    {
-      DcmItem *item = this->m_DcmSequenceOfItems->getItem(index);
-      DcmSequenceOfItems *sequence =
-        dynamic_cast<DcmSequenceOfItems *>(item);
-      if(sequence == 0)
-        {
-        DCMTKException(<< "Can't find DCMTKSequence at index " << index);
-        }
-      target.SetDcmSequenceOfItems(sequence);
-      return EXIT_SUCCESS;
-    }
-  int GetStack(unsigned short group,
-                unsigned short element,
-                DcmStack &resultStack, bool throwException = true)
-    {
-      DcmTagKey tagkey(group,element);
-      if(this->m_DcmSequenceOfItems->search(tagkey,resultStack) != EC_Normal)
-        {
-        DCMTKException(<< "Can't find tag " << std::hex << group << " "
-                       << element << std::dec);
-        }
-      return EXIT_SUCCESS;
-    }
-
-  int GetElementCS(unsigned short group,
-                    unsigned short element,
-                    std::string &target,
-                    bool throwException = true)
-    {
-      DcmStack resultStack;
-      this->GetStack(group,element,resultStack);
-      DcmCodeString *codeStringElement = dynamic_cast<DcmCodeString *>(resultStack.top());
-      if(codeStringElement == 0)
-        {
-          DCMTKException(<< "Can't get CodeString Element at tag "
-                                   << std::hex << group << " "
-                                   << element << std::dec);
-        }
-      OFString ofString;
-      if(codeStringElement->getOFStringArray(ofString) != EC_Normal)
-          {
-          DCMTKException(<< "Can't get OFString Value at tag "
-                         << std::hex << group << " "
-                         << element << std::dec);
-          }
-      target = "";
-      for(unsigned j = 0; j < ofString.length(); ++j)
-        {
-        target += ofString[j];
-        }
-      return EXIT_SUCCESS;
-    }
-  int GetElementFD(unsigned short group,
-                    unsigned short element,
-                    double * &target,
-                    bool throwException = true)
-    {
-      DcmStack resultStack;
-      this->GetStack(group,element,resultStack);
-      DcmFloatingPointDouble *fdItem = dynamic_cast<DcmFloatingPointDouble *>(resultStack.top());
-      if(fdItem == 0)
-        {
-          DCMTKException(<< "Can't get CodeString Element at tag "
-                                   << std::hex << group << " "
-                                   << element << std::dec);
-        }
-      if(fdItem->getFloat64Array(target) != EC_Normal)
-        {
-        DCMTKException(<< "Can't get floatarray Value at tag "
-                       << std::hex << group << " "
-                       << element << std::dec);
-        }
-      return EXIT_SUCCESS;
-    }
-  int GetElementFD(unsigned short group,
-                    unsigned short element,
-                    double &target,
-                    bool throwException = true)
-    {
-      double *array;
-      this->GetElementFD(group,element,array,throwException);
-      target = array[0];
-      return EXIT_SUCCESS;
-    }
-  int GetElementDS(unsigned short group,
-                  unsigned short element,
-                  std::string &target,
-                  bool throwException = true)
-    {
-      DcmStack resultStack;
-      this->GetStack(group,element,resultStack);
-      DcmDecimalString *decimalStringElement = dynamic_cast<DcmDecimalString *>(resultStack.top());
-      if(decimalStringElement == 0)
-        {
-        DCMTKException(<< "Can't get DecimalString Element at tag "
-                       << std::hex << group << " "
-                       << element << std::dec);
-        }
-      // check for # of expected numbers in DS
-      std::stringstream ss;
-      ss << target;
-      OFString arity(ss.str().c_str());
-      if(decimalStringElement->checkValue(arity) != EC_Normal)
-        {
-        DCMTKException(<< "Value doesn't have proper number of elements");
-        }
-      OFString ofString;
-      if(decimalStringElement->getOFStringArray(ofString) != EC_Normal)
-        {
-        DCMTKException(<< "Can't get DecimalString Value at tag "
-                       << std::hex << group << " "
-                       << element << std::dec);
-        }
-      target = "";
-      for(unsigned j = 0; j < ofString.length(); ++j)
-        {
-        target += ofString[j];
-        }
-      return EXIT_SUCCESS;
-    }
-  int GetElementSQ(unsigned short group,
-                  unsigned short element,
-                  DCMTKSequence &target,
-                  bool throwException = true)
-    {
-      DcmTagKey tagkey(group,element);
-      DcmStack resultStack;
-      this->GetStack(group,element,resultStack);
-
-      DcmSequenceOfItems *seqElement = dynamic_cast<DcmSequenceOfItems *>(resultStack.top());
-      if(seqElement == 0)
-        {
-          DCMTKException(<< "Can't get  at tag "
-                                   << std::hex << group << " "
-                                   << element << std::dec);
-        }
-      target.SetDcmSequenceOfItems(seqElement);
-      return EXIT_SUCCESS;
-    }
-
-private:
-  DcmSequenceOfItems *m_DcmSequenceOfItems;
-};
-
-class DCMTKFileReader
-{
-public:
-  DCMTKFileReader() : m_DFile(0),
-                      m_Dataset(0),
-                      m_DicomImage(0),
-                      m_Xfer(EXS_Unknown),
-                      m_FrameCount(0)
-    {
-    }
-  ~DCMTKFileReader()
-    {
-
-delete m_DFile;
-      delete m_DicomImage;
-    }
-  void SetFileName(const std::string &fileName)
-    {
-      this->m_FileName = fileName;
-    }
-  void LoadFile()
-    {
-      if(this->m_FileName == "")
-        {
-        itkGenericExceptionMacro(<< "No filename given" );
-        }
-      if(this->m_DFile != 0)
-        {
-        delete this->m_DFile;
-        }
-      this->m_DFile = new DcmFileFormat();
-      OFCondition cond = this->m_DFile->loadFile(this->m_FileName.c_str());
-      if(cond.bad())
-        {
-        itkGenericExceptionMacro(<< cond.text() << ": reading file " << this->m_FileName);
-        }
-      this->m_Dataset = this->m_DFile->getDataset();
-      this->m_Xfer = this->m_Dataset->getOriginalXfer();
-      this->m_DicomImage = new DicomImage(this->m_DFile,this->m_Xfer,CIF_DecompressCompletePixelData,0,0);
-      if(this->m_DicomImage  == 0)
-        {
-        itkGenericExceptionMacro(<< "Allocating DCMTK Image failed" );
-        }
-      if(this->m_Dataset->findAndGetSint32(DCM_NumberOfFrames,this->m_FrameCount).bad())
-        {
-        this->m_FrameCount = 1;
-        }
-    }
-  int GetElementLO(unsigned short group,
-                  unsigned short element,
-                  std::string &target,
-                  bool throwException = true)
-    {
-      DcmTagKey tagkey(group,element);
-      DcmElement *el;
-      if(this->m_Dataset->findAndGetElement(tagkey,el) != EC_Normal)
-        {
-          DCMTKException(<< "Cant find tag " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      DcmLongString *loItem = dynamic_cast<DcmLongString *>(el);
-      if(loItem == 0)
-        {
-          DCMTKException(<< "Cant find DecimalString element " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      OFString ofString;
-      if(loItem->getOFStringArray(ofString) != EC_Normal)
-        {
-        DCMTKException(<< "Cant get string from element " << std::hex
-                       << group << " " << std::hex
-                       << element << std::dec);
-        }
-      target = "";
-      for(unsigned i = 0; i < ofString.size(); i++)
-        {
-        target += ofString[i];
-        }
-      return EXIT_SUCCESS;
-    }
-
-  int GetElementLO(unsigned short group,
-                    unsigned short element,
-                    std::vector<std::string> &target,
-                    bool throwException = true)
-    {
-      DcmTagKey tagkey(group,element);
-      DcmElement *el;
-      if(this->m_Dataset->findAndGetElement(tagkey,el) != EC_Normal)
-        {
-          DCMTKException(<< "Cant find tag " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      DcmLongString *loItem = dynamic_cast<DcmLongString *>(el);
-      if(loItem == 0)
-        {
-          DCMTKException(<< "Cant find DecimalString element " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      target.clear();
-      OFString ofString;
-      for(unsigned long i = 0; loItem->getOFString(ofString,i) == EC_Normal; ++i)
-        {
-        std::string targetStr = "";
-        for(unsigned i = 0; i < ofString.size(); i++)
-          {
-          targetStr += ofString[i];
-          }
-        target.push_back(targetStr);
-        }
-      return EXIT_SUCCESS;
-    }
-
-   /** Get an array of data values, as contained in a DICOM
-    * DecimalString Item
-    */
-  template <typename TType>
-  int  GetElementDS(unsigned short group,
-                     unsigned short element,
-                     unsigned short count,
-                     TType  *target,
-                     bool throwException = true)
-    {
-      DcmTagKey tagkey(group,element);
-      DcmElement *el;
-      if(this->m_Dataset->findAndGetElement(tagkey,el) != EC_Normal)
-        {
-          DCMTKException(<< "Cant find tag " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      DcmDecimalString *dsItem = dynamic_cast<DcmDecimalString *>(el);
-      if(dsItem == 0)
-        {
-          DCMTKException(<< "Cant find DecimalString element " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      OFVector<Float64> doubleVals;
-      if(dsItem->getFloat64Vector(doubleVals) != EC_Normal)
-        {
-          DCMTKException(<< "Cant extract Array from DecimalString " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      if(doubleVals.size() != count)
-        {
-          DCMTKException(<< "DecimalString " << std::hex
-                                   << group << " " << std::hex
-                                   << element << " expected "
-                                   << count << "items, but found "
-                                   << doubleVals.size() << std::dec);
-
-        }
-      for(unsigned i = 0; i < count; i++)
-        {
-        target[i] = static_cast<TType>(doubleVals[i]);
-        }
-      return EXIT_SUCCESS;
-    }
-  /** Get a DecimalString Item as a single string
-   */
-  int  GetElementDS(unsigned short group,
-                     unsigned short element,
-                     std::string &target,
-                     bool throwException = true)
-    {
-      DcmTagKey tagkey(group,element);
-      DcmElement *el;
-      if(this->m_Dataset->findAndGetElement(tagkey,el) != EC_Normal)
-        {
-          DCMTKException(<< "Cant find tag " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      DcmDecimalString *dsItem = dynamic_cast<DcmDecimalString *>(el);
-      if(dsItem == 0)
-        {
-          DCMTKException(<< "Cant find DecimalString element " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      OFString ofString;
-      if(dsItem->getOFStringArray(ofString) != EC_Normal)
-        {
-        DCMTKException(<< "Can't get DecimalString Value at tag "
-                       << std::hex << group << " "
-                       << element << std::dec);
-        }
-      target = "";
-      for(unsigned j = 0; j < ofString.length(); ++j)
-        {
-        target += ofString[j];
-        }
-      return EXIT_SUCCESS;
-    }
-
-  int  GetElementFD(unsigned short group,
-                     unsigned short element,
-                     double &target,
-                     bool throwException = true)
-    {
-      DcmTagKey tagkey(group,element);
-      DcmElement *el;
-      if(this->m_Dataset->findAndGetElement(tagkey,el) != EC_Normal)
-        {
-          DCMTKException(<< "Cant find tag " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      DcmFloatingPointDouble *fdItem = dynamic_cast<DcmFloatingPointDouble *>(el);
-      if(fdItem == 0)
-        {
-          DCMTKException(<< "Cant find DecimalString element " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      if(fdItem->getFloat64(target) != EC_Normal)
-        {
-          DCMTKException(<< "Cant extract Array from DecimalString " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      return EXIT_SUCCESS;
-    }
-  int  GetElementFD(unsigned short group,
-                     unsigned short element,
-                     double * &target,
-                     bool throwException = true)
-    {
-      DcmTagKey tagkey(group,element);
-      DcmElement *el;
-      if(this->m_Dataset->findAndGetElement(tagkey,el) != EC_Normal)
-        {
-          DCMTKException(<< "Cant find tag " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      DcmFloatingPointDouble *fdItem = dynamic_cast<DcmFloatingPointDouble *>(el);
-      if(fdItem == 0)
-        {
-          DCMTKException(<< "Cant find DecimalString element " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      if(fdItem->getFloat64Array(target) != EC_Normal)
-        {
-          DCMTKException(<< "Cant extract Array from DecimalString " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      return EXIT_SUCCESS;
-    }
-  int  GetElementFL(unsigned short group,
-                     unsigned short element,
-                     float &target,
-                     bool throwException = true)
-    {
-      DcmTagKey tagkey(group,element);
-      DcmElement *el;
-      if(this->m_Dataset->findAndGetElement(tagkey,el) != EC_Normal)
-        {
-          DCMTKException(<< "Cant find tag " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      DcmFloatingPointSingle *flItem = dynamic_cast<DcmFloatingPointSingle *>(el);
-      if(flItem == 0)
-        {
-          DCMTKException(<< "Cant find DecimalString element " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      if(flItem->getFloat32(target) != EC_Normal)
-        {
-          DCMTKException(<< "Cant extract Array from DecimalString " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      return EXIT_SUCCESS;
-    }
-  int  GetElementUS(unsigned short group,
-                     unsigned short element,
-                     unsigned short &target,
-                     bool throwException = true)
-    {
-      DcmTagKey tagkey(group,element);
-      DcmElement *el;
-      if(this->m_Dataset->findAndGetElement(tagkey,el) != EC_Normal)
-        {
-          DCMTKException(<< "Cant find tag " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      DcmUnsignedShort *usItem = dynamic_cast<DcmUnsignedShort *>(el);
-      if(usItem == 0)
-        {
-          DCMTKException(<< "Cant find DecimalString element " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      if(usItem->getUint16(target) != EC_Normal)
-        {
-          DCMTKException(<< "Cant extract Array from DecimalString " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      return EXIT_SUCCESS;
-    }
-  int  GetElementUS(unsigned short group,
-                     unsigned short element,
-                     unsigned short *&target,
-                     bool throwException = true)
-    {
-      DcmTagKey tagkey(group,element);
-      DcmElement *el;
-      if(this->m_Dataset->findAndGetElement(tagkey,el) != EC_Normal)
-        {
-          DCMTKException(<< "Cant find tag " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      DcmUnsignedShort *usItem = dynamic_cast<DcmUnsignedShort *>(el);
-      if(usItem == 0)
-        {
-          DCMTKException(<< "Cant find DecimalString element " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      if(usItem->getUint16Array(target) != EC_Normal)
-        {
-          DCMTKException(<< "Cant extract Array from DecimalString " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      return EXIT_SUCCESS;
-    }
-  /** Get a DecimalString Item as a single string
-   */
-  int  GetElementCS(unsigned short group,
-                     unsigned short element,
-                     std::string &target,
-                     bool throwException = true)
-    {
-      DcmTagKey tagkey(group,element);
-      DcmElement *el;
-      if(this->m_Dataset->findAndGetElement(tagkey,el) != EC_Normal)
-        {
-          DCMTKException(<< "Cant find tag " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      DcmCodeString *csItem = dynamic_cast<DcmCodeString *>(el);
-      if(csItem == 0)
-        {
-          DCMTKException(<< "Cant find DecimalString element " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      OFString ofString;
-      if(csItem->getOFStringArray(ofString) != EC_Normal)
-        {
-        DCMTKException(<< "Can't get DecimalString Value at tag "
-                       << std::hex << group << " "
-                       << element << std::dec);
-        }
-      target = "";
-      for(unsigned j = 0; j < ofString.length(); ++j)
-        {
-        target += ofString[j];
-        }
-      return EXIT_SUCCESS;
-    }
-
-  /** get an IS (Integer String Item
-   */
-  int  GetElementIS(unsigned short group,
-                     unsigned short element,
-                     int target,
-                     bool throwException = true)
-    {
-      DcmTagKey tagkey(group,element);
-      DcmElement *el;
-      if(this->m_Dataset->findAndGetElement(tagkey,el) != EC_Normal)
-        {
-          DCMTKException(<< "Cant find tag " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      DcmIntegerString *isItem = dynamic_cast<DcmIntegerString *>(el);
-      if(isItem == 0)
-        {
-          DCMTKException(<< "Cant find DecimalString element " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      if(isItem->getSint32(target) != EC_Normal)
-        {
-        DCMTKException(<< "Can't get DecimalString Value at tag "
-                       << std::hex << group << " "
-                       << element << std::dec);
-        }
-      return EXIT_SUCCESS;
-    }
-
-  /** get an OB OtherByte Item
-   */
-  int  GetElementOB(unsigned short group,
-                     unsigned short element,
-                     std::string &target,
-                     bool throwException = true)
-    {
-      DcmTagKey tagkey(group,element);
-      DcmElement *el;
-      if(this->m_Dataset->findAndGetElement(tagkey,el) != EC_Normal)
-        {
-          DCMTKException(<< "Cant find tag " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      DcmOtherByteOtherWord *obItem = dynamic_cast<DcmOtherByteOtherWord *>(el);
-      if(obItem == 0)
-        {
-          DCMTKException(<< "Cant find DecimalString element " << std::hex
-                                   << group << " " << std::hex
-                                   << element << std::dec);
-        }
-      OFString ofString;
-      if(obItem->getOFStringArray(ofString) != EC_Normal)
-        {
-        DCMTKException(<< "Can't get OFString Value at tag "
-                       << std::hex << group << " "
-                       << element << std::dec);
-        }
-      target = "";
-      for(unsigned j = 0; j < ofString.length(); ++j)
-        {
-        target += ofString[j];
-        }
-      return EXIT_SUCCESS;
-    }
-
-  int GetElementSQ(unsigned short group,
-                  unsigned short entry,
-                  DCMTKSequence &sequence,
-                  bool throwException = true)
-    {
-      DcmSequenceOfItems *seq;
-      DcmTagKey tagKey(group,entry);
-
-      if(this->m_Dataset->findAndGetSequence(tagKey,seq) != EC_Normal)
-        {
-        DCMTKException(<< "Can't find sequence "
-                       << std::hex << group << " "
-                       << std::hex << entry)
-        }
-      sequence.SetDcmSequenceOfItems(seq);
-      return EXIT_SUCCESS;
-    }
-  int GetFrameCount() { return this->m_FrameCount; }
-
-  E_TransferSyntax GetTransferSyntax() { return m_Xfer; }
-private:
-  std::string          m_FileName;
-  DcmFileFormat*       m_DFile;
-  DcmDataset *         m_Dataset;
-  DicomImage *         m_DicomImage;
-  E_TransferSyntax     m_Xfer;
-  Sint32               m_FrameCount;
-};
-
+#include "DCMTKFileReader.h"
 
 bool
 StringContains(const std::string &string,const std::string pattern)
@@ -700,14 +36,6 @@ isSystemBigEndian(void)
   } bint = {0x01020304};
 
   return bint.c[0] == 1;
-}
-
-void
-AddDictEntry(DcmDictEntry *entry)
-{
-  DcmDataDictionary &dict = dcmDataDict.wrlock();
-  dict.addEntry(entry);
-  dcmDataDict.unlock();
 }
 
 unsigned ascii2hex(char c)
@@ -903,25 +231,25 @@ AddFlagsToDictionary()
                                                                    "Diffusion Direction F/H", 4, 4 , 0,true,
                                                                    "dicomtonrrd");
 
-  AddDictEntry(GEDictBValue);
-  AddDictEntry(GEDictXGradient);
-  AddDictEntry(GEDictYGradient);
-  AddDictEntry(GEDictZGradient);
+  DCMTKFileReader::AddDictEntry(GEDictBValue);
+  DCMTKFileReader::AddDictEntry(GEDictXGradient);
+  DCMTKFileReader::AddDictEntry(GEDictYGradient);
+  DCMTKFileReader::AddDictEntry(GEDictZGradient);
 
   // relevant Siemens private tags
-  AddDictEntry(SiemensMosiacParameters);
-  AddDictEntry(SiemensDictNMosiac);
-  AddDictEntry(SiemensDictBValue);
-  AddDictEntry(SiemensDictDiffusionDirection);
-  AddDictEntry(SiemensDictDiffusionMatrix);
-  AddDictEntry(SiemensDictShadowInfo);
+  DCMTKFileReader::AddDictEntry(SiemensMosiacParameters);
+  DCMTKFileReader::AddDictEntry(SiemensDictNMosiac);
+  DCMTKFileReader::AddDictEntry(SiemensDictBValue);
+  DCMTKFileReader::AddDictEntry(SiemensDictDiffusionDirection);
+  DCMTKFileReader::AddDictEntry(SiemensDictDiffusionMatrix);
+  DCMTKFileReader::AddDictEntry(SiemensDictShadowInfo);
 
   // relevant Philips private tags
-  AddDictEntry(PhilipsDictBValue);
-  AddDictEntry(PhilipsDictDiffusionDirection);
-  AddDictEntry(PhilipsDictDiffusionDirectionRL);
-  AddDictEntry(PhilipsDictDiffusionDirectionAP);
-  AddDictEntry(PhilipsDictDiffusionDirectionFH);
+  DCMTKFileReader::AddDictEntry(PhilipsDictBValue);
+  DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirection);
+  DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionRL);
+  DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionAP);
+  DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionFH);
 
 }
 
@@ -1007,10 +335,7 @@ int main(int argc, char *argv[])
     }
   else if(inputFileNames.size() == 1)
     {
-    //
-    // Not sure this code makes any sense, or ever gets called
-    // actually. It's asking itksys::Directory to open up a file
-    // as a directory.
+    // Use itksys::Directory to open up the given name as a directory.
     inputFileNames.resize( 0 );
     itksys::Directory directory;
     directory.Load( itksys::SystemTools::CollapseFullPath(inputDicomDirectory.c_str()).c_str() );
@@ -1110,10 +435,22 @@ int main(int argc, char *argv[])
     std::string ImageType;
     dcmFileReader.GetElementCS(0x0008,0x0008, ImageType);
 
-    bool SliceMosaic = vendor.find("SIEMENS") != std::string::npos &&
-      ImageType.find("MOSAIC") != std::string::npos;
+    bool SliceMosaic(false);
+    if(vendor.find("SIEMENS") != std::string::npos)
+      {
+      if(ImageType.find("MOSAIC") != std::string::npos)
+        {
+        SliceMosaic = true;
+        }
+      }
+    else if(vendor.find("GE") == std::string::npos &&
+            vendor.find("PHILIPS") == std::string::npos)
+      {
+      std::cerr << "Unrecognized scanner vendor |"
+                << vendor << "|" << std::endl;
+      }
 
-    //////////////////////////////////////////////////
+     //////////////////////////////////////////////////
     // 1) Read the input series as an array of slices
     ReaderType::Pointer reader = ReaderType::New();
     itk::GDCMImageIO::Pointer gdcmIO = itk::GDCMImageIO::New();
