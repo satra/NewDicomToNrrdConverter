@@ -32,10 +32,12 @@
     }                                           \
   else                                          \
     {                                           \
-    std::cerr body;                             \
     return EXIT_FAILURE;                        \
     }                                           \
   }
+// Don't print error messages if you're not throwing
+// an exception
+//     std::cerr body;
 
 class DCMTKSequence
 {
@@ -187,7 +189,6 @@ public:
       target.SetDcmSequenceOfItems(seqElement);
       return EXIT_SUCCESS;
     }
-
 private:
   DcmSequenceOfItems *m_DcmSequenceOfItems;
 };
@@ -195,22 +196,29 @@ private:
 class DCMTKFileReader
 {
 public:
+  typedef DCMTKFileReader Self;
+
   DCMTKFileReader() : m_DFile(0),
                       m_Dataset(0),
                       m_DicomImage(0),
                       m_Xfer(EXS_Unknown),
-                      m_FrameCount(0)
+                      m_FrameCount(0),
+                      m_FileNumber(-1L)
     {
     }
   ~DCMTKFileReader()
     {
 
-delete m_DFile;
+      delete m_DFile;
       delete m_DicomImage;
     }
   void SetFileName(const std::string &fileName)
     {
       this->m_FileName = fileName;
+    }
+  const std::string &GetFileName() const
+    {
+      return this->m_FileName;
     }
   void LoadFile()
     {
@@ -239,6 +247,9 @@ delete m_DFile;
         {
         this->m_FrameCount = 1;
         }
+      int fnum;
+      this->GetElementIS(0x0020,0x0013,fnum);
+      this->m_FileNumber = fnum;
     }
   int GetElementLO(unsigned short group,
                   unsigned short element,
@@ -574,7 +585,7 @@ delete m_DFile;
    */
   int  GetElementIS(unsigned short group,
                      unsigned short element,
-                     int target,
+                     int &target,
                      bool throwException = true)
     {
       DcmTagKey tagkey(group,element);
@@ -630,11 +641,7 @@ delete m_DFile;
                        << std::hex << group << " "
                        << element << std::dec);
         }
-      target = "";
-      for(unsigned j = 0; j < ofString.length(); ++j)
-        {
-        target += ofString[j];
-        }
+      target = Self::ConvertFromOB(ofString);
       return EXIT_SUCCESS;
     }
 
@@ -659,6 +666,10 @@ delete m_DFile;
 
   E_TransferSyntax GetTransferSyntax() { return m_Xfer; }
 
+  long GetFileNumber() const
+    {
+      return m_FileNumber;
+    }
   static void
   AddDictEntry(DcmDictEntry *entry)
     {
@@ -668,12 +679,63 @@ delete m_DFile;
     }
 
 private:
+  static unsigned ascii2hex(char c)
+    {
+      switch(c)
+        {
+        case '0': return 0;
+        case '1': return 1;
+        case '2': return 2;
+        case '3': return 3;
+        case '4': return 4;
+        case '5': return 5;
+        case '6': return 6;
+        case '7': return 7;
+        case '8': return 8;
+        case '9': return 9;
+        case 'a':
+        case 'A': return 10;
+        case 'b':
+        case 'B': return 11;
+        case 'c':
+        case 'C': return 12;
+        case 'd':
+        case 'D': return 13;
+        case 'e':
+        case 'E': return 14;
+        case 'f':
+        case 'F': return 15;
+        }
+      return 255; // should never happen
+    }
+  static std::string ConvertFromOB(OFString &toConvert)
+    {
+      // string format is nn\nn\nn...
+      std::string rval;
+      for(size_t pos = 0; pos < toConvert.size(); pos += 3)
+        {
+        unsigned char convert[2];
+        convert[0] = Self::ascii2hex(toConvert[pos]);
+        convert[1] = Self::ascii2hex(toConvert[pos+1]);
+        unsigned char conv = convert[0] << 4;
+        conv += convert[1];
+        rval.push_back(static_cast<unsigned char>(conv));
+        }
+      return rval;
+    }
+
   std::string          m_FileName;
   DcmFileFormat*       m_DFile;
   DcmDataset *         m_Dataset;
   DicomImage *         m_DicomImage;
   E_TransferSyntax     m_Xfer;
   Sint32               m_FrameCount;
+  long                 m_FileNumber;
 };
+
+bool CompareDCMTKFileReaders(DCMTKFileReader *a, DCMTKFileReader *b)
+{
+  return a->GetFileNumber() < b->GetFileNumber();
+}
 
 #endif // DCMTKFileReader_h

@@ -1,8 +1,8 @@
 
-file(READ ${dcmtkGenConfig} code)
-string(REPLACE "int i = strerror_r(0, buf, 100);" 
-"buf = strerror_r(0, buf, 100)" code "${code}")
-file(WRITE ${dcmtkGenConfig} "${code}")
+# file(READ ${dcmtkGenConfig} code)
+# string(REPLACE "int i = strerror_r(0, buf, 100);" 
+# "buf = strerror_r(0, buf, 100)" code "${code}")
+# file(WRITE ${dcmtkGenConfig} "${code}")
 
 
 file(READ ${dcmtk3rdParty} code)

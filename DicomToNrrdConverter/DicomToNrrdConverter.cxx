@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <algorithm>
+#include <ctype.h>
 #include "DicomToNrrdConverterCLP.h"
 
 #include "itkMacro.h"
@@ -22,6 +24,13 @@ bool
 StringContains(const std::string &string,const std::string pattern)
 {
   return string.find(pattern) != std::string::npos;
+}
+
+char myUpper(char a) { return toupper(a); }
+
+void strupper(std::string &s)
+{
+  std::transform(s.begin(),s.end(),s.begin(),myUpper);
 }
 
 bool swapByteOrder(false);
@@ -66,22 +75,6 @@ unsigned ascii2hex(char c)
     case 'F': return 15;
     }
   return 255; // should never happen
-}
-
-std::string ConvertFromOB(std::string &toConvert)
-{
-  // string format is nn\nn\nn...
-  std::string rval;
-  for(size_t pos = 0; pos < toConvert.size(); pos += 3)
-    {
-    unsigned char convert[2];
-    convert[0] = ascii2hex(toConvert[pos]);
-    convert[1] = ascii2hex(toConvert[pos+1]);
-    unsigned char conv = convert[0] << 4;
-    conv += convert[1];
-    rval.push_back(static_cast<unsigned char>(conv));
-    }
-  return rval;
 }
 
 static unsigned int ExtractSiemensDiffusionInformation(const std::string tagString,
@@ -258,6 +251,15 @@ AddFlagsToDictionary()
 
 }
 
+void FreeHeaders(std::vector<DCMTKFileReader *> &allHeaders)
+{
+  for(std::vector<DCMTKFileReader *>::iterator it = allHeaders.begin();
+      it != allHeaders.end(); ++it)
+    {
+    delete (*it);
+    }
+}
+
 typedef short PixelValueType;
 typedef itk::Image< PixelValueType, 3 > VolumeType;
 
@@ -327,12 +329,15 @@ int main(int argc, char *argv[])
   //
   // get the names of all slices in the directory
   InputNamesGeneratorType::Pointer inputNames = InputNamesGeneratorType::New();
+  inputNames->SetUseSeriesDetails( true);
   inputNames->SetLoadSequences( true );
   inputNames->SetLoadPrivateTags( true );
   inputNames->SetInputDirectory(inputDicomDirectory);
 
-  itk::FilenamesContainer inputFileNames(inputNames->GetInputFileNames());
-  if(inputFileNames.size() < 1)
+  ReaderType::FileNamesContainer inputFileNames = inputNames->GetInputFileNames();
+  const size_t nFiles = inputFileNames.size();
+
+  if(nFiles < 1)
     {
     std::cerr << "Error: no DICOMfiles found in inputDirectory: " << inputDicomDirectory
               << std::endl;
@@ -371,6 +376,36 @@ int main(int argc, char *argv[])
         }
       }
     }
+  //////////////////////////////////////////////////
+  // Since GDCM2 can't properly sort the image filenames
+  // do so here
+  std::vector<DCMTKFileReader *> allHeaders(inputFileNames.size());
+  for(unsigned i = 0; i < allHeaders.size(); ++i)
+    {
+    allHeaders[i] = new DCMTKFileReader;
+    allHeaders[i]->SetFileName(inputFileNames[i]);
+    try
+      {
+      allHeaders[i]->LoadFile();
+      }
+    catch(...)
+      {
+      std::cerr << "Error reading slice" << inputFileNames[i] << std::endl;
+      FreeHeaders(allHeaders);
+      return EXIT_FAILURE;
+      }
+    }
+  //
+  // sort in file number order, since GDCMSeries broke that ordering
+  std::sort(allHeaders.begin(),allHeaders.end(),CompareDCMTKFileReaders);
+  //
+  // reorder the filename list
+  inputFileNames.resize( 0 );
+  for(unsigned i = 0; i < allHeaders.size(); ++i)
+    {
+    std::string fname = allHeaders[i]->GetFileName();
+    inputFileNames.push_back(fname);
+    }
 
   DCMTKFileReader dcmFileReader;
   dcmFileReader.SetFileName(inputFileNames[0]);
@@ -382,6 +417,7 @@ int main(int argc, char *argv[])
     {
     std::cerr << "Exception thrown while reading first file in series" << std::endl;
     std::cerr << excp << std::endl;
+    FreeHeaders(allHeaders);
     return EXIT_FAILURE;
     };
 
@@ -393,9 +429,11 @@ int main(int argc, char *argv[])
   catch(itk::ExceptionObject &excp)
     {
     std::cerr << "Can't get vendor name from DICOM file" << excp << std::endl;
+    FreeHeaders(allHeaders);
     return EXIT_FAILURE;
     }
 
+  strupper(vendor);
 
   std::string modality;
   try
@@ -405,6 +443,7 @@ int main(int argc, char *argv[])
   catch(itk::ExceptionObject &excp)
     {
     std::cerr << "Can't find modality in DICOM file" << excp << std::endl;
+    FreeHeaders(allHeaders);
     return EXIT_FAILURE;
     }
 
@@ -430,8 +469,10 @@ int main(int argc, char *argv[])
       {
       std::cerr << "ExceptionObject caught !" << std::endl;
       std::cerr << err << std::endl;
+      FreeHeaders(allHeaders);
       return EXIT_FAILURE;
       }
+    FreeHeaders(allHeaders);
     return EXIT_SUCCESS;
     }
 
@@ -470,26 +511,11 @@ int main(int argc, char *argv[])
       {
       std::cerr << "Exception thrown while reading the series" << std::endl;
       std::cerr << excp << std::endl;
+      FreeHeaders(allHeaders);
       return EXIT_FAILURE;
       }
     VolumeType::Pointer dmImage = VolumeType::New();
 
-    //////////////////////////////////////////////////
-    // 1-A) Read the input dicom headers
-    std::vector<DCMTKFileReader> allHeaders(inputFileNames.size());
-    for(unsigned i = 0; i < allHeaders.size(); ++i)
-      {
-      allHeaders[i].SetFileName(inputFileNames[i]);
-      try
-        {
-        allHeaders[i].LoadFile();
-        }
-      catch(...)
-        {
-        std::cerr << "Error reading slice" << inputFileNames[i] << std::endl;
-        return EXIT_FAILURE;
-        }
-      }
 
     // get image dims and resolution
     unsigned short nRows, nCols;
@@ -527,9 +553,10 @@ int main(int argc, char *argv[])
       {
       std::string originString;
 
-      allHeaders[k].GetElementDS(0x0020, 0x0032, originString );
+      allHeaders[k]->GetElementDS(0x0020, 0x0032, originString );
       sliceLocationStrings.push_back( originString );
       sliceLocations[originString]++;
+      // std::cerr << inputFileNames[k] << " " << originString << std::endl;
       }
 
     for (unsigned int k = 0; k < nSlice; k++)
@@ -657,13 +684,13 @@ int main(int argc, char *argv[])
         }
       // has the measurement frame represented as an identity matrix.
       double image0Origin[3];
-      allHeaders[0].GetElementDS(0x0020, 0x0032, 3, image0Origin);
+      allHeaders[0]->GetElementDS(0x0020, 0x0032, 3, image0Origin);
       std::cout << "Slice 0: " << image0Origin[0] << " " << image0Origin[1] << " " << image0Origin[2] << std::endl;
 
       // assume volume interleaving, i.e. the second dicom file stores
       // the second slice in the same volume as the first dicom file
       double image1Origin[3];
-      allHeaders[1].GetElementDS(0x0020, 0x0032, 3, image1Origin);
+      allHeaders[1]->GetElementDS(0x0020, 0x0032, 3, image1Origin);
       std::cout << "Slice 0: " << image1Origin[0] << " " << image1Origin[1] << " " << image1Origin[2] << std::endl;
 
       image1Origin[0] -= image0Origin[0];
@@ -689,7 +716,6 @@ int main(int argc, char *argv[])
       // copy information stored in 0029,1010 into a string for parsing
       std::string tag;
       dcmFileReader.GetElementOB(0x0029,0x1010, tag);
-      tag = ConvertFromOB(tag);
       // parse SliceNormalVector from 0029,1010 tag
       std::vector<double> valueArray(0);
       int nItems = ExtractSiemensDiffusionInformation(tag, "SliceNormalVector", valueArray);
@@ -730,13 +756,13 @@ int main(int argc, char *argv[])
       nVolume = nSlice/nSliceInVolume;
 
       double  image0Origin[3];
-      allHeaders[0].GetElementDS(0x0020, 0x0032, 3, image0Origin);
+      allHeaders[0]->GetElementDS(0x0020, 0x0032, 3, image0Origin);
       std::cout << "Slice 0: " << image0Origin[0] << " " << image0Origin[1] << " " << image0Origin[2] << std::endl;
 
       // assume volume interleaving, i.e. the second dicom file stores
       // the second slice in the same volume as the first dicom file
       double  image1Origin[3];
-      allHeaders[nVolume].GetElementDS(0x0020, 0x0032, 3, image1Origin);
+      allHeaders[nVolume]->GetElementDS(0x0020, 0x0032, 3, image1Origin);
       std::cout << "Slice " << nVolume << ": " << image1Origin[0] << " "
                 << image1Origin[1] << " " << image1Origin[2] << std::endl;
 
@@ -763,6 +789,7 @@ int main(int argc, char *argv[])
       std::cout << " Warning: vendor type not valid" << std::endl;
       // treate the dicom series as an ordinary image and write a straight nrrd file.
       WriteVolume( reader->GetOutput(), outputVolumeHeaderName );
+      FreeHeaders(allHeaders);
       return EXIT_SUCCESS;
       }
 
@@ -824,14 +851,15 @@ int main(int argc, char *argv[])
         // for some weird reason this item in the GE dicom
         // header is stored as an IS (Integer String) element.
         int intb;
-        allHeaders[k].GetElementIS(0x0043, 0x1039, intb);
+        allHeaders[k]->GetElementIS(0x0043, 0x1039, intb);
         float b = static_cast<float>(intb);
 
-        allHeaders[k].GetElementDS(0x0019, 0x10bb, 1, &vect3d[0]);
-
-        allHeaders[k].GetElementDS(0x0019, 0x10bc, 1, &vect3d[1]);
-
-        allHeaders[k].GetElementDS(0x0019, 0x10bd, 1, &vect3d[2]);
+        allHeaders[k]->GetElementDS(0x0019, 0x10bb, 1, &vect3d[0]);
+        allHeaders[k]->GetElementDS(0x0019, 0x10bc, 1, &vect3d[1]);
+        allHeaders[k]->GetElementDS(0x0019, 0x10bd, 1, &vect3d[2]);
+        
+        vect3d[0] = -vect3d[0];
+        vect3d[1] = -vect3d[1];
 
         bValues.push_back( b );
         if (b == 0)
@@ -866,21 +894,24 @@ int main(int argc, char *argv[])
         {
         std::string DiffusionDirectionality;
         const bool useSuppplement49Definitions =
-          allHeaders[k].GetElementCS(0x0018,0x9075,DiffusionDirectionality,false) == EXIT_SUCCESS;
+          allHeaders[k]->GetElementCS(0x0018,0x9075,DiffusionDirectionality,false) == EXIT_SUCCESS;
 
         bool B0FieldFound = false;
         double b=0.0;
         if (useSuppplement49Definitions == true )
           {
-          B0FieldFound = allHeaders[k].GetElementFD(0x0018,0x9087,b,false) == EXIT_SUCCESS;
+          B0FieldFound = allHeaders[k]->GetElementFD(0x0018,0x9087,b,false) == EXIT_SUCCESS;
           }
         else
           {
           float floatB;
-          B0FieldFound = allHeaders[k].GetElementFL(0x2001,0x1003,floatB,false) == EXIT_SUCCESS;
-          b = static_cast<double>(floatB);
+          B0FieldFound = allHeaders[k]->GetElementFL(0x2001,0x1003,floatB,false) == EXIT_SUCCESS;
+          if(B0FieldFound)
+            {
+            b = static_cast<double>(floatB);
+            }
           std::string tag;
-          allHeaders[k].GetElementCS(0x2001, 0x1004, tag );
+          allHeaders[k]->GetElementOB(0x2001, 0x1004, tag );
           if((tag.find("I") != std::string::npos) && (b != 0) )
             {
             DiffusionDirectionality="ISOTROPIC";
@@ -919,19 +950,20 @@ int main(int argc, char *argv[])
             {
             double *doubleArray;
             //Use alternate method to get value out of a sequence header (Some Phillips Data).
-            if(allHeaders[k].GetElementFD(0x0018, 0x9089, doubleArray,false) != EXIT_SUCCESS)
+            if(allHeaders[k]->GetElementFD(0x0018, 0x9089, doubleArray,false) != EXIT_SUCCESS)
               {
               //std::cout << "Looking for  0018|9089 in sequence 0018,9076" << std::endl;
               // gdcm::SeqEntry *
               // DiffusionSeqEntry=allHeaders[k]->GetSeqEntry(0x0018,0x9076);
               DCMTKSequence DiffusionSeqEntry;
-              allHeaders[k].GetElementSQ(0x0018,0x9076,DiffusionSeqEntry);
+              allHeaders[k]->GetElementSQ(0x0018,0x9076,DiffusionSeqEntry);
               // const unsigned int
               // n=DiffusionSeqEntry->GetNumberOfSQItems();
               unsigned int n = DiffusionSeqEntry.card();
               if( n == 0 )
                 {
                 std::cout << "ERROR:  Sequence entry 0018|9076 has no items." << std::endl;
+                FreeHeaders(allHeaders);
                 return EXIT_FAILURE;
                 }
               DiffusionSeqEntry.GetElementFD(0x0018,0x9089, doubleArray);
@@ -946,9 +978,9 @@ int main(int argc, char *argv[])
             {
             float tmp[3];
             /*const bool b0exist =*/
-            allHeaders[k].GetElementFL( 0x2005, 0x10b0, tmp[0] );
-            allHeaders[k].GetElementFL( 0x2005, 0x10b1, tmp[1] );
-            allHeaders[k].GetElementFL( 0x2005, 0x10b2, tmp[2] );
+            allHeaders[k]->GetElementFL( 0x2005, 0x10b0, tmp[0] );
+            allHeaders[k]->GetElementFL( 0x2005, 0x10b1, tmp[1] );
+            allHeaders[k]->GetElementFL( 0x2005, 0x10b2, tmp[2] );
             vect3d[0] = static_cast<double>(tmp[0]);
             vect3d[1] = static_cast<double>(tmp[1]);
             vect3d[2] = static_cast<double>(tmp[2]);
@@ -962,6 +994,7 @@ int main(int argc, char *argv[])
           {
           std::cout << "ERROR: DiffusionDirectionality was "
                     << DiffusionDirectionality << "  Don't know what to do with that..." << std::endl;
+          FreeHeaders(allHeaders);
           return EXIT_FAILURE;
           }
 
@@ -1000,8 +1033,7 @@ int main(int argc, char *argv[])
       for (unsigned int k = 0; k < nSlice; k += nStride )
         {
         std::string diffusionInfoString;;
-        allHeaders[k].GetElementOB( 0x0029, 0x1010, diffusionInfoString );
-        diffusionInfoString  = ConvertFromOB(diffusionInfoString);
+        allHeaders[k]->GetElementOB( 0x0029, 0x1010, diffusionInfoString );
 
         // parse B_value from 0029,1010 tag
         std::vector<double> valueArray(0);
@@ -1127,8 +1159,7 @@ int main(int argc, char *argv[])
           {
           std::cout << "=======================================" << std::endl << std::endl;
           std::string diffusionInfoString;
-          allHeaders[k].GetElementOB(0x0029, 0x1010, diffusionInfoString );
-          diffusionInfoString  = ConvertFromOB(diffusionInfoString);
+          allHeaders[k]->GetElementOB(0x0029, 0x1010, diffusionInfoString );
 
           std::vector<double> valueArray;
           vnl_vector_fixed<double, 3> vect3d;
@@ -1171,6 +1202,7 @@ int main(int argc, char *argv[])
                 std::cout << "Gradient #" << k << " with magnitude " << DiffusionVector_magnitude << std::endl;
                 std::cout << "Please set useBMatrixGradientDirections to calculate gradient directions "
                           << "from the scanner B Matrix to alleviate this problem." << std::endl;
+                FreeHeaders(allHeaders);
                 return EXIT_FAILURE;
                 }
               }
@@ -1310,6 +1342,7 @@ int main(int argc, char *argv[])
       {
       std::cout << "ERROR: Unknown scanner vendor " << vendor << std::endl;
       std::cout << "       this dti file format is properly handled." << std::endl;
+      FreeHeaders(allHeaders);
       return EXIT_FAILURE;
       }
 
@@ -1349,8 +1382,10 @@ int main(int argc, char *argv[])
           {
           std::cerr << "Exception thrown while reading the series" << std::endl;
           std::cerr << excp << std::endl;
+          FreeHeaders(allHeaders);
           return EXIT_FAILURE;
           }
+        FreeHeaders(allHeaders);
         return EXIT_SUCCESS;
         }
       else
@@ -1366,6 +1401,7 @@ int main(int argc, char *argv[])
             {
             std::cerr << "Exception thrown while reading the series" << std::endl;
             std::cerr << excp << std::endl;
+            FreeHeaders(allHeaders);
             return EXIT_FAILURE;
             }
           }
@@ -1474,8 +1510,10 @@ int main(int argc, char *argv[])
           {
           std::cerr << "Exception thrown while reading the series" << std::endl;
           std::cerr << excp << std::endl;
+          FreeHeaders(allHeaders);
           return EXIT_FAILURE;
           }
+        FreeHeaders(allHeaders);
         return EXIT_SUCCESS;
         }
       else
@@ -1491,6 +1529,7 @@ int main(int argc, char *argv[])
             {
             std::cerr << "Exception thrown while reading the series" << std::endl;
             std::cerr << excp << std::endl;
+            FreeHeaders(allHeaders);
             return EXIT_FAILURE;
             }
           }
@@ -1557,8 +1596,10 @@ int main(int argc, char *argv[])
           {
           std::cerr << "Exception thrown while reading the series" << std::endl;
           std::cerr << excp << std::endl;
+          FreeHeaders(allHeaders);
           return EXIT_FAILURE;
           }
+        FreeHeaders(allHeaders);
         return EXIT_SUCCESS;
         }
       else
@@ -1574,6 +1615,7 @@ int main(int argc, char *argv[])
             {
             std::cerr << "Exception thrown while reading the series" << std::endl;
             std::cerr << excp << std::endl;
+            FreeHeaders(allHeaders);
             return EXIT_FAILURE;
             }
           }
@@ -1582,17 +1624,20 @@ int main(int argc, char *argv[])
       if( count != bValues.size() )
         {
         std::cout << "ERROR:  bValues are the wrong size." <<  count << " != " << bValues.size() << std::endl;
+        FreeHeaders(allHeaders);
         return EXIT_FAILURE;
         }
       if( count != DiffusionVectors.size() )
         {
         std::cout << "ERROR:  DiffusionVectors are the wrong size." <<  count << " != " << DiffusionVectors.size() << std::endl;
+        FreeHeaders(allHeaders);
         return EXIT_FAILURE;
         }
       if( count != UnmodifiedDiffusionVectorsInDicomLPSCoordinateSystem.size() )
         {
         std::cout << "ERROR:  UnmodifiedDiffusionVectorsInDicomLPSCoordinateSystem are the wrong size."
                   <<  count << " != " << UnmodifiedDiffusionVectorsInDicomLPSCoordinateSystem.size() << std::endl;
+        FreeHeaders(allHeaders);
         return EXIT_FAILURE;
         }
       }
@@ -1600,6 +1645,7 @@ int main(int argc, char *argv[])
       {
       std::cout << "Warning:  invalid vendor found." << std::endl;
       WriteVolume( reader->GetOutput(), outputVolumeHeaderName );
+      FreeHeaders(allHeaders);
       return EXIT_SUCCESS;
       }
 
@@ -1836,8 +1882,10 @@ int main(int argc, char *argv[])
   catch (itk::ExceptionObject &excp)
     {
     std::cerr << "Exception caught " << excp << std::endl;
+    FreeHeaders(allHeaders);
     return EXIT_FAILURE;
     }
+  FreeHeaders(allHeaders);
   return EXIT_SUCCESS;
 
 }
