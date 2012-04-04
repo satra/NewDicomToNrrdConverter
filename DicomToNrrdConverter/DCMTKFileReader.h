@@ -23,7 +23,7 @@
 
 #include "diregist.h"     /* include to support color images */
 #include "ofstd.h"           /* for OFStandard */
-
+#include "itkByteSwapper.h"
 #define DCMTKException(body)                    \
   {                                             \
   if(throwException)                            \
@@ -200,7 +200,6 @@ public:
 
   DCMTKFileReader() : m_DFile(0),
                       m_Dataset(0),
-                      m_DicomImage(0),
                       m_Xfer(EXS_Unknown),
                       m_FrameCount(0),
                       m_FileNumber(-1L)
@@ -210,7 +209,6 @@ public:
     {
 
       delete m_DFile;
-      delete m_DicomImage;
     }
   void SetFileName(const std::string &fileName)
     {
@@ -238,11 +236,6 @@ public:
         }
       this->m_Dataset = this->m_DFile->getDataset();
       this->m_Xfer = this->m_Dataset->getOriginalXfer();
-      this->m_DicomImage = new DicomImage(this->m_DFile,this->m_Xfer,CIF_DecompressCompletePixelData,0,0);
-      if(this->m_DicomImage  == 0)
-        {
-        itkGenericExceptionMacro(<< "Allocating DCMTK Image failed" );
-        }
       if(this->m_Dataset->findAndGetSint32(DCM_NumberOfFrames,this->m_FrameCount).bad())
         {
         this->m_FrameCount = 1;
@@ -367,6 +360,43 @@ public:
         }
       return EXIT_SUCCESS;
     }
+
+  template <typename TType>
+  int  GetElementDSorOB(unsigned short group,
+                        unsigned short element,
+                        TType  &target,
+                        bool throwException = true)
+    {
+      if(this->GetElementDS<TType>(group,element,1,&target,false) == EXIT_SUCCESS)
+        {
+        return EXIT_SUCCESS;
+        }
+      std::string val;
+      if(this->GetElementOB(group,element,val) != EXIT_SUCCESS)
+        {
+        DCMTKException(<< "Cant find DecimalString element " << std::hex
+                       << group << " " << std::hex
+                       << element << std::dec);
+        }
+      const char *data = val.c_str();
+      const TType *fptr = reinterpret_cast<const TType *>(data);
+      target = *fptr;
+      switch(this->GetTransferSyntax())
+        {
+        case EXS_LittleEndianImplicit:
+        case EXS_LittleEndianExplicit:
+          itk::ByteSwapper<TType>::SwapFromSystemToLittleEndian(&target);
+          break;
+        case EXS_BigEndianImplicit:
+        case EXS_BigEndianExplicit:
+          itk::ByteSwapper<TType>::SwapFromSystemToBigEndian(&target);
+          break;
+        default:
+          break;
+        }
+      return EXIT_SUCCESS;
+
+    }
   /** Get a DecimalString Item as a single string
    */
   int  GetElementDS(unsigned short group,
@@ -403,7 +433,6 @@ public:
         }
       return EXIT_SUCCESS;
     }
-
   int  GetElementFD(unsigned short group,
                      unsigned short element,
                      double &target,
@@ -488,6 +517,41 @@ public:
         }
       return EXIT_SUCCESS;
     }
+  int  GetElementFLorOB(unsigned short group,
+                     unsigned short element,
+                     float &target,
+                     bool throwException = true)
+    {
+      if(this->GetElementFL(group,element,target,false) == EXIT_SUCCESS)
+        {
+        return EXIT_SUCCESS;
+        }
+      std::string val;
+      if(this->GetElementOB(group,element,val) != EXIT_SUCCESS)
+        {
+        DCMTKException(<< "Cant find DecimalString element " << std::hex
+                       << group << " " << std::hex
+                       << element << std::dec);
+        }
+      const char *data = val.c_str();
+      const float *fptr = reinterpret_cast<const float *>(data);
+      target = *fptr;
+      switch(this->GetTransferSyntax())
+        {
+        case EXS_LittleEndianImplicit:
+        case EXS_LittleEndianExplicit:
+          itk::ByteSwapper<float>::SwapFromSystemToLittleEndian(&target);
+          break;
+        case EXS_BigEndianImplicit:
+        case EXS_BigEndianExplicit:
+          itk::ByteSwapper<float>::SwapFromSystemToBigEndian(&target);
+          break;
+        default:
+          break;
+        }
+      return EXIT_SUCCESS;
+    }
+
   int  GetElementUS(unsigned short group,
                      unsigned short element,
                      unsigned short &target,
@@ -612,6 +676,38 @@ public:
       return EXIT_SUCCESS;
     }
 
+  int  GetElementISorOB(unsigned short group,
+                        unsigned short element,
+                        int &target,
+                        bool throwException = true)
+    {
+      if(this->GetElementIS(group,element,target,false) == EXIT_SUCCESS)
+        {
+        return EXIT_SUCCESS;
+        }
+      std::string val;
+      this->GetElementOB(group,element,val); // throw exception if
+                                             // this fails.
+      const char *data = val.c_str();
+      const int *iptr = reinterpret_cast<const int *>(data);
+      target = *iptr;
+      switch(this->GetTransferSyntax())
+        {
+        case EXS_LittleEndianImplicit:
+        case EXS_LittleEndianExplicit:
+          itk::ByteSwapper<int>::SwapFromSystemToLittleEndian(&target);
+          break;
+        case EXS_BigEndianImplicit:
+        case EXS_BigEndianExplicit:
+          itk::ByteSwapper<int>::SwapFromSystemToBigEndian(&target);
+          break;
+        default:                // no idea what to do
+          break;
+        }
+
+      return EXIT_SUCCESS;
+    }
+
   /** get an OB OtherByte Item
    */
   int  GetElementOB(unsigned short group,
@@ -727,7 +823,6 @@ private:
   std::string          m_FileName;
   DcmFileFormat*       m_DFile;
   DcmDataset *         m_Dataset;
-  DicomImage *         m_DicomImage;
   E_TransferSyntax     m_Xfer;
   Sint32               m_FrameCount;
   long                 m_FileNumber;
