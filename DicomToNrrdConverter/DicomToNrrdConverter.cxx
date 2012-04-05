@@ -385,9 +385,10 @@ int main(int argc, char *argv[])
         }
       }
     }
+
   //////////////////////////////////////////////////
-  // Since GDCM2 can't properly sort the image filenames
-  // do so here
+  // load all files in the dicom series.
+  //////////////////////////////////////////////////
   std::vector<DCMTKFileReader *> allHeaders(inputFileNames.size());
   for(unsigned i = 0; i < allHeaders.size(); ++i)
     {
@@ -405,9 +406,12 @@ int main(int argc, char *argv[])
       }
     }
 
-  //
+#if (ITK_VERSION_MAJOR > 3)
+  // Since GDCM2 can't properly sort the image filenames
+  // do so here
   // sort in file number order, since GDCMSeries broke that ordering
   std::sort(allHeaders.begin(),allHeaders.end(),CompareDCMTKFileReaders);
+#endif
   //
   // reorder the filename list
   inputFileNames.resize( 0 );
