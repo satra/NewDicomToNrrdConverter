@@ -320,7 +320,7 @@ int main(int argc, char *argv[])
       {
       outputVolumeHeaderName = outputDirectory;
       outputVolumeHeaderName += "/";
-      outputVolumeHeaderName + outputVolume;
+      outputVolumeHeaderName += outputVolume;
       }
     }
 
@@ -843,6 +843,18 @@ int main(int argc, char *argv[])
 
     if ( vendor.find("GE") != std::string::npos )
       {
+      //
+      // don't even try to convert DTI 6 Direction files
+      std::string seriesDescription;
+#if 0
+      if(allHeaders[0]->GetElementLO(0x0008,0x103e,seriesDescription,false) == EXIT_SUCCESS &&
+         StringContains(seriesDescription,"6 Directions"))
+        {
+        std::cerr << "Can't recover B-value & diffusion directions from DTI - 6 Directions scans" << std::endl;
+        FreeHeaders(allHeaders);
+        return EXIT_FAILURE;
+        }
+#endif
       nSliceInVolume = numberOfSlicesPerVolume;
       nVolume = nSlice/nSliceInVolume;
 
