@@ -45,7 +45,7 @@ endif(NOT SETIFEMPTY)
 
 set(TEMP ${CMAKE_CURRENT_BINARY_DIR})
 
-include(${BRAINS_CMAKE_HELPER_DIR}/MIDAS.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/MIDAS.cmake)
 SETIFEMPTY(MIDAS_REST_URL "http://midas.kitware.com/api/rest" CACHE STRING "The MIDAS server where testing data resides")
 
 set(MIDAS_KEY_DIR "${DicomToNrrdConverter_SOURCE_DIR}/ExtendedTesting/keys")
