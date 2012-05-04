@@ -63,6 +63,30 @@ void strupper(std::string &s)
   std::transform(s.begin(),s.end(),s.begin(),myUpper);
 }
 
+unsigned int ConvertFromCharPtr(const char *s,E_TransferSyntax xferSyntax)
+{
+  unsigned int rval = 0;
+  // assume little-endian
+  for(unsigned i = 0; i < sizeof(unsigned int); i++)
+    {
+    rval += ((unsigned int)s[i]) << (i * 8);
+    }
+
+  switch(xferSyntax)
+    {
+    case EXS_LittleEndianImplicit:
+    case EXS_LittleEndianExplicit:
+      itk::ByteSwapper<unsigned int>::SwapFromSystemToLittleEndian(&rval);
+      break;
+    case EXS_BigEndianImplicit:
+    case EXS_BigEndianExplicit:
+      itk::ByteSwapper<unsigned int>::SwapFromSystemToBigEndian(&rval);
+      break;
+    default:
+      break;
+    }
+  return rval;
+}
 /** pull data out of Siemens scans.
  *
  *  Siemens sticks most of the DTI information into a single
@@ -75,7 +99,8 @@ void strupper(std::string &s)
 unsigned int
 ExtractSiemensDiffusionInformation(const std::string tagString,
                                    const std::string nameString,
-                                   std::vector<double>& valueArray )
+                                   std::vector<double>& valueArray,
+                                   E_TransferSyntax xferSyntax)
 {
   ::size_t atPosition = tagString.find( nameString );
   if(atPosition == std::string::npos)
@@ -103,12 +128,12 @@ ExtractSiemensDiffusionInformation(const std::string tagString,
   std::string infoAsString = tagString.substr( atPosition, tagString.size()-atPosition+1 );
   const char * infoAsCharPtr = infoAsString.c_str();
 
-  unsigned int vm = *(infoAsCharPtr+64);
+  unsigned int vm = ConvertFromCharPtr(infoAsCharPtr+64,xferSyntax);
   {
   std::string vr = infoAsString.substr( 68, 2 );
-  int syngodt = *(infoAsCharPtr+72);
-  int nItems = *(infoAsCharPtr+76);
-  int localDummy = *(infoAsCharPtr+80);
+  int syngodt = ConvertFromCharPtr(infoAsCharPtr+72,xferSyntax);
+  int nItems = ConvertFromCharPtr(infoAsCharPtr+76,xferSyntax);
+  int localDummy = ConvertFromCharPtr(infoAsCharPtr+80,xferSyntax);
 
   //std::cout << "\tName String: " << nameString << std::endl;
   //std::cout << "\tVR: " << vr << std::endl;
@@ -131,12 +156,12 @@ ExtractSiemensDiffusionInformation(const std::string tagString,
       infoAsCharPtr = infoAsString.c_str();
       //std::cout << "\tOffset to new position" << std::endl;
       //std::cout << "\tNew Local String: " << infoAsString.substr(0,80) << std::endl;
-      vm = *(infoAsCharPtr+64);
+      vm = ConvertFromCharPtr(infoAsCharPtr+64,xferSyntax);
       vr = infoAsString.substr( 68, 2 );
       if (vr == "FD") loop = false;
-      syngodt = *(infoAsCharPtr+72);
-      nItems = *(infoAsCharPtr+76);
-      localDummy = *(infoAsCharPtr+80);
+      syngodt = ConvertFromCharPtr(infoAsCharPtr+72,xferSyntax);
+      nItems = ConvertFromCharPtr(infoAsCharPtr+76,xferSyntax);
+      localDummy = ConvertFromCharPtr(infoAsCharPtr+80,xferSyntax);
       //std::cout << "\tVR: " << vr << std::endl;
       //std::cout << "\tVM: " << vm << std::endl;
       }
@@ -725,7 +750,8 @@ int main(int argc, char *argv[])
       allHeaders[0]->GetElementOB(0x0029,0x1010, tag);
       // parse SliceNormalVector from 0029,1010 tag
       std::vector<double> valueArray(0);
-      int nItems = ExtractSiemensDiffusionInformation(tag, "SliceNormalVector", valueArray);
+      int nItems = ExtractSiemensDiffusionInformation(tag, "SliceNormalVector", valueArray,
+                                                      allHeaders[0]->GetTransferSyntax());
       if (nItems != 3)  // did not find enough information
         {
         std::cout << "Warning: Cannot find complete information on SliceNormalVector in 0029|1010" << std::endl;
@@ -738,7 +764,8 @@ int main(int argc, char *argv[])
 
       // parse NumberOfImagesInMosaic from 0029,1010 tag
       valueArray.resize(0);
-      nItems = ExtractSiemensDiffusionInformation(tag, "NumberOfImagesInMosaic", valueArray);
+      nItems = ExtractSiemensDiffusionInformation(tag, "NumberOfImagesInMosaic", valueArray,
+                                                  allHeaders[0]->GetTransferSyntax());
       if (nItems == 0)  // did not find enough information
         {
         std::cout << "Warning: Cannot find complete information on NumberOfImagesInMosaic in 0029|1010" << std:: endl;
@@ -1073,7 +1100,8 @@ int main(int argc, char *argv[])
 
         // parse B_value from 0029,1010 tag
         std::vector<double> valueArray(0);
-        int nItems = ExtractSiemensDiffusionInformation(diffusionInfoString, "B_value", valueArray);
+        int nItems = ExtractSiemensDiffusionInformation(diffusionInfoString, "B_value", valueArray,
+                                                        allHeaders[k]->GetTransferSyntax());
 
         if (nItems != 1)   // did not find enough information
           {
@@ -1089,7 +1117,8 @@ int main(int argc, char *argv[])
           // JTM - Patch from UNC: fill the nhdr header with the gradient directions and
           // bvalues computed out of the BMatrix
           valueArray.resize(0);
-          int nItems = ExtractSiemensDiffusionInformation(diffusionInfoString, "B_matrix", valueArray);
+          int nItems = ExtractSiemensDiffusionInformation(diffusionInfoString, "B_matrix", valueArray,
+                                                          allHeaders[k]->GetTransferSyntax());
           vnl_matrix_fixed<double, 3, 3> bMatrix;
 
           if ((useBMatrixGradientDirections) && (nItems == 6))
@@ -1104,7 +1133,8 @@ int main(int argc, char *argv[])
             bool b0_image = false;
 
             // UNC comments: Get the bvalue
-            nItems = ExtractSiemensDiffusionInformation(diffusionInfoString, "B_value", bval_tmp);
+            nItems = ExtractSiemensDiffusionInformation(diffusionInfoString, "B_value", bval_tmp,
+                                                        allHeaders[k]->GetTransferSyntax());
             if (bval_tmp[0] == 0)
               {
               b0_image = true;
@@ -1164,7 +1194,8 @@ int main(int argc, char *argv[])
           else
             {
             valueArray.resize(0);
-            ExtractSiemensDiffusionInformation(diffusionInfoString, "B_value", valueArray);
+            ExtractSiemensDiffusionInformation(diffusionInfoString, "B_value", valueArray,
+                                               allHeaders[k]->GetTransferSyntax());
             bValues.push_back( valueArray[0] );
             vect3d[0] = 0;
             vect3d[1] = 0;
@@ -1202,7 +1233,8 @@ int main(int argc, char *argv[])
 
           // parse DiffusionGradientDirection from 0029,1010 tag
           valueArray.resize(0);
-          int nItems = ExtractSiemensDiffusionInformation(diffusionInfoString, "DiffusionGradientDirection", valueArray);
+          int nItems = ExtractSiemensDiffusionInformation(diffusionInfoString, "DiffusionGradientDirection", valueArray,
+                                                          allHeaders[k]->GetTransferSyntax());
           std::cout << "Number of Directions : " << nItems << std::endl;
           std::cout << "   Directions 0: " << valueArray[0] << std::endl;
           std::cout << "   Directions 1: " << valueArray[1] << std::endl;
