@@ -686,8 +686,10 @@ public:
         return EXIT_SUCCESS;
         }
       std::string val;
-      this->GetElementOB(group,element,val); // throw exception if
-                                             // this fails.
+      if(this->GetElementOB(group,element,val,throwException) != EXIT_SUCCESS)
+        {
+        return EXIT_FAILURE;
+        }
       const char *data = val.c_str();
       const int *iptr = reinterpret_cast<const int *>(data);
       target = *iptr;
