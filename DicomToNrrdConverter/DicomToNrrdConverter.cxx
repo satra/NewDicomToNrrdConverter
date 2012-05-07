@@ -71,7 +71,10 @@ unsigned int ConvertFromCharPtr(const char *s,E_TransferSyntax xferSyntax)
     {
     rval += ((unsigned int)s[i]) << (i * 8);
     }
-
+// this makes no sense, according to what I've read, but apparently,
+// the uint32 numbers in the CSA header are little-endian even in
+// files with BigEndian transfer syntax.#if 0
+#if 0
   switch(xferSyntax)
     {
     case EXS_LittleEndianImplicit:
@@ -85,6 +88,7 @@ unsigned int ConvertFromCharPtr(const char *s,E_TransferSyntax xferSyntax)
     default:
       break;
     }
+#endif
   return rval;
 }
 /** pull data out of Siemens scans.
@@ -1256,37 +1260,28 @@ int main(int argc, char *argv[])
           else
             {
             double DiffusionVector_magnitude;
-//            double DiffusionVector_magnitude_difference = 0.0;
-
             vect3d[0] = valueArray[0];
             vect3d[1] = valueArray[1];
             vect3d[2] = valueArray[2];
 
             DiffusionVector_magnitude = sqrt((vect3d[0]*vect3d[0]) + (vect3d[1]*vect3d[1]) + (vect3d[2]*vect3d[2]));
 
-//            if (gradient_scaling_factor[k / nStride] != 0.0)
+            std::cout << "DiffusionVector_magnitude " << DiffusionVector_magnitude << std::endl;
+            if(DiffusionVector_magnitude <= smallGradientThreshold)
               {
-//              DiffusionVector_magnitude_difference = fabs(1.0 - (DiffusionVector_magnitude / gradient_scaling_factor[k / nStride]));
-//              std::cout << "DiffusionVector_magnitude_difference " << DiffusionVector_magnitude_difference << std::endl;
-//              std::cout << "gradient_scaling_factor " << gradient_scaling_factor[k / nStride] << std::endl;
-              std::cout << "DiffusionVector_magnitude " << DiffusionVector_magnitude << std::endl;
-              if(DiffusionVector_magnitude <= smallGradientThreshold)
-//              if ((DiffusionVector_magnitude_difference <= smallGradientThreshold) && (!useBMatrixGradientDirections))
-                {
-                std::cout << "ERROR: Gradient vector with unreasonably small magnitude exists." << std::endl;
-                std::cout << "Gradient #" << k << " with magnitude " << DiffusionVector_magnitude << std::endl;
-                std::cout << "Please set useBMatrixGradientDirections to calculate gradient directions "
-                          << "from the scanner B Matrix to alleviate this problem." << std::endl;
-                FreeHeaders(allHeaders);
-                return EXIT_FAILURE;
-                }
+              std::cout << "ERROR: Gradient vector with unreasonably small magnitude exists." << std::endl;
+              std::cout << "Gradient #" << k << " with magnitude " << DiffusionVector_magnitude << std::endl;
+              std::cout << "Please set useBMatrixGradientDirections to calculate gradient directions "
+                        << "from the scanner B Matrix to alleviate this problem." << std::endl;
+              FreeHeaders(allHeaders);
+              return EXIT_FAILURE;
               }
 
             UnmodifiedDiffusionVectorsInDicomLPSCoordinateSystem.push_back(vect3d);
             // vect3d.normalize();
             DiffusionVectors.push_back(vect3d);
             int p = bValues.size();
-            std::cout << "Image#: " << k << " BV: " << bValues[p-1] << " GD: " << DiffusionVectors[k] << std::endl;
+            std::cout << "Image#: " << k << " BV: " << bValues[p-1] << " GD: " << DiffusionVectors[k/nStride] << std::endl;
             }
           }
         }
