@@ -10,6 +10,8 @@ find_package(ITK 4 REQUIRED)
 
 find_package(DCMTK REQUIRED)
 
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR} ${CMAKE_MODULE_PATH})
+
 foreach(lib oflog ofstd )
   find_library(DCMTK_${lib}_LIBRARY
     ${lib}
@@ -35,12 +37,10 @@ set ( ${CLP}_SOURCE ${CLP}.cxx)
 find_package(SlicerExecutionModel REQUIRED GenerateCLP)
 include(${GenerateCLP_USE_FILE})
 
-find_library(ICONV_LIBRARY iconv "IConv library needed by DCMTK")
+find_package(LIBICONV REQUIRED)
 
-if(${ICONV_LIBRARY} STREQUAL "ICONV_LIB-NOTFOUND")
-  message(FATAL_ERROR "Can't locate IConv library")
-endif()
-
+#message("DCMTK_LIBRARIES=${DCMTK_LIBRARIES}")
+#message("LIBICONV_LIBRARIES ${LIBICONV_LIBRARIES} LIB_ICONV_INCLUDE_DIRS ${LIBICONV_INCLUDE_DIRS}")
 
 generateclp(${CLP}_SOURCE ${CLP}.xml)
 
@@ -48,11 +48,10 @@ link_directories(${DCMTK_DIR}/lib)
 
 add_executable(${CLP} ${${CLP}_SOURCE})
 
-message("DCMTK_LIBRARIES=${DCMTK_LIBRARIES}")
 target_link_libraries (${CLP}
   ${ITK_LIBRARIES}
   ${DCMTK_LIBRARIES}
-  ${ICONV_LIBRARY}
+  ${LIBICONV_LIBRARIES}
   ${ZLIB_LIBRARIES}
   )
 set_target_properties(${CLP} PROPERTIES LABELS ${CLP})

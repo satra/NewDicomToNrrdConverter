@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 2.8)
 
 project(DICOM2NRRD)
 
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/DicomToNrrdConverter ${CMAKE_MODULE_PATH})
+
 include(ExternalProject)
 
 set(PREREQS ${CMAKE_CURRENT_BINARY_DIR}/Prereqs)
@@ -98,30 +100,48 @@ ExternalProject_add(libtiff
   CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${PREREQS} CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
   --enable-shared=No
   --enable-static=Yes
+  CC=${CMAKE_C_COMPILER}
+  CXX=${CMAKE_CXX_COMPILER}
   DEPENDS libjpeg
   )
 
-if(NOT APPLE)
-ExternalProject_add(libiconv
-  URL http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.14.tar.gz
-  URL_MD5 e34509b1623cec449dfeb73d7ce9c6c6
-#  GIT_REPOSITORY git://git.savannah.gnu.org/libiconv.git
-  UPDATE_COMMAND ""
-  CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${PREREQS}
-  --enable-static=yes
-  --enable-shared=no
-  CC=${CMAKE_C_COMPILER}
-  CXX=${CMAKE_CXX_COMPILER}
-  )
-  set(ICONV_LIB_FLAGS -DICONV_LIBRARY:FILEPATH=${PREREQS}/lib/libiconv.a)
+find_package(LIBICONV)
+if(LIBICONV_FOUND)
+  get_filename_component(LIBICONV_LIBDIR ${LIBICONV_LIBRARY} PATH)
+  set(ICONV_LIB_FLAGS
+    -DLIBICONV_LIBDIR:PATH=${LIBICONV_LIBDIR}
+    -DLIBICONV_INCLUDE_DIR:PATH=${LIBICONV_INCLUDE_DIR}
+    -DLIBICONV_LIBRARY:PATH=${LIBICONV_LIBRARY}
+    )
+else(LIBICONV_FOUND)
+  ExternalProject_add(libiconv
+    URL http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.14.tar.gz
+    URL_MD5 e34509b1623cec449dfeb73d7ce9c6c6
+    #  GIT_REPOSITORY git://git.savannah.gnu.org/libiconv.git
+    UPDATE_COMMAND ""
+    CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${PREREQS}
+    --enable-static=yes
+    --enable-shared=no
+    CC=${CMAKE_C_COMPILER}
+    CXX=${CMAKE_CXX_COMPILER}
+    )
+  set(ICONV_LIB_FLAGS
+    -DLIBICONV_LIBDIR:PATH=${PREREQS}/lib
+    -DLIBICONV_INCLUDE_DIR:PATH=${PREREQS}/include
+    -DLIBICONV_LIBRARY:FILEPATH=${PREREQS}/lib/libiconv.a)
   set(ICONV_DEP libiconv)
-endif(NOT APPLE)
+endif(LIBICONV_FOUND)
 
 #  GIT_REPOSITORY https://github.com/commontk/DCMTK.git
 ExternalProject_add(dcmtk
+  SOURCE_DIR dcmtk
+  BINARY_DIR dcmtk-build
   GIT_REPOSITORY "git://git.dcmtk.org/dcmtk.git"
   GIT_TAG 12690c81c05fbb0ec7087522bdc48dfea8aa528a
   UPDATE_COMMAND ""
+  PATCH_COMMAND ${CMAKE_COMMAND} -E
+  copy ${CMAKE_CURRENT_LIST_DIR}/DicomToNrrdConverter/FindLIBICONV.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/dcmtk/CMake/FindICONV.cmake
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${PREREQS}
   ${COMMON_CMAKE_FLAGS}
   -DDCMTK_WITH_XML:BOOL=ON
@@ -129,13 +149,15 @@ ExternalProject_add(dcmtk
   -DJPEG_DIR:PATH=${PreReqs}
   -DTIFF_INCLUDE_DIR:PATH=${PREREQS}/include
   -DTIFF_LIBRARY:FILEPATH=${PREREQS}/lib/${LIB_PREFIX}tiff${LIB_SUFFIX}
-  DEPENDS libtiff libjpeg
+  ${ICONV_LIB_FLAGS}
+  DEPENDS libtiff libjpeg ${ICONV_DEP}
 )
 
 
 set(dcmtkPatchScript ${CMAKE_CURRENT_LIST_DIR}/dcmtkPatchScript.cmake)
-set(dcmtkGenConfig ${CMAKE_CURRENT_BINARY_DIR}/dcmtk-prefix/src/dcmtk/CMake/GenerateDCMTKConfigure.cmake)
-set(dcmtk3rdParty ${CMAKE_CURRENT_BINARY_DIR}/dcmtk-prefix/src/dcmtk/CMake/3rdparty.cmake)
+set(dcmtkGenConfig ${CMAKE_CURRENT_BINARY_DIR}/dcmtk/dcmtk/CMake/GenerateDCMTKConfigure.cmake)
+set(dcmtk3rdParty ${CMAKE_CURRENT_BINARY_DIR}/dcmtk/CMake/3rdparty.cmake)
+
 ExternalProject_Add_Step(dcmtk fixGenerateConfig
   COMMENT "One step of the configuration is broke with respect to strerror_r"
   DEPENDEES download
@@ -148,12 +170,12 @@ ExternalProject_Add_Step(dcmtk fixGenerateConfig
 
 set(proj DicomToNrrdConverter)
 
-ExternalProject_add(${proj}
+ExternalProject_add(DicomToNrrdConverter
   DEPENDS dcmtk SlicerExecutionModel ITK ${ICONV_DEP}
   DOWNLOAD_COMMAND ""
   INSTALL_COMMAND  ""
-  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${proj}
-  BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/${proj}-build
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/DicomToNrrdConverter
+  BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/DicomToNrrdConverter-build
   CMAKE_ARGS
   -DRUN_EXTENDED_LOCAL_TESTING:BOOL=ON
   -DITK_DIR:PATH=${ITK_DIR}

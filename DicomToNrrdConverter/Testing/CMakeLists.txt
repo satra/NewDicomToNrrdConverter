@@ -9,13 +9,15 @@ include(${GenerateCLP_USE_FILE})
 
 include_directories(${DicomToNrrdConverter_SOURCE_DIR})
 include_directories(${DicomToNrrdConverter_BINARY_DIR})
-include_directories(${ModuleDescriptionParser_SOURCE_DIR})
-include_directories (${TCLAP_SOURCE_DIR}/include)
+#include_directories(${ModuleDescriptionParser_SOURCE_DIR})
+#include_directories (${TCLAP_SOURCE_DIR}/include)
 
 set (CLP DicomToNrrdConverter)
 add_executable(${CLP}Test ${CLP}Test.cxx)
 add_dependencies(${CLP}Test ${CLP})
-target_link_libraries(${CLP}Test ${CLP}Lib iconv)
+
+target_link_libraries(${CLP}Test ${CLP}Lib ${LIBICONV_LIBRARIES})
+
 set_target_properties(${CLP}Test PROPERTIES LABELS ${CLP})
 
 #-----------------------------------------------------------------------------
