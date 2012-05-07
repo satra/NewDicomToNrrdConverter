@@ -176,7 +176,7 @@ ExtractSiemensDiffusionInformation(const std::string tagString,
   unsigned int offset = 84;
   for (unsigned int k = 0; k < vm; k++)
     {
-    const int itemLength = *(infoAsCharPtr+offset+4);
+    const int itemLength = ConvertFromCharPtr(infoAsCharPtr+offset+4,xferSyntax);
     const int strideSize = static_cast<int> (ceil(static_cast<double>(itemLength)/4) * 4);
     if( infoAsString.length() < offset + 16 + itemLength )
       {
@@ -1070,6 +1070,7 @@ int main(int argc, char *argv[])
       {
 
       int nStride = 1;
+
       if ( !SliceMosaic )
         {
         std::cout << orthoSliceSpacing << std::endl;
@@ -1090,11 +1091,14 @@ int main(int argc, char *argv[])
         }
 
       // JTM - Determine bvalues from all gradients
-      double max_bValue = 0.0;
       vnl_vector_fixed<double, 3> vect3d;
 
       for (unsigned int k = 0; k < nSlice; k += nStride )
         {
+        //
+        // in Siemens, this entry is a 'CSA Header' which is blob
+        // of mixed text & binary data.  Pretty annoying but there you
+        // have it.
         std::string diffusionInfoString;;
         allHeaders[k]->GetElementOB( 0x0029, 0x1010, diffusionInfoString );
 
@@ -1103,14 +1107,29 @@ int main(int argc, char *argv[])
         int nItems = ExtractSiemensDiffusionInformation(diffusionInfoString, "B_value", valueArray,
                                                         allHeaders[k]->GetTransferSyntax());
 
-        if (nItems != 1)   // did not find enough information
+        if (nItems != 1)
           {
+          //
+          // B_Value is missing -- the punt position is to count this
+          // volume as having a B_value & Gradient Direction of zero
           std::cout << "Warning: Cannot find complete information on B_value in 0029|1010" << std::endl;
           bValues.push_back( 0.0 );
           vect3d.fill( 0.0 );
           UnmodifiedDiffusionVectorsInDicomLPSCoordinateSystem.push_back(vect3d);
           DiffusionVectors.push_back(vect3d);
           continue;
+          }
+
+        // we got a 'valid' B-value
+        // If we're trusting the gradient directions in the header,
+        // then all we need to do here is save the bValue.
+        if(!useBMatrixGradientDirections)
+          {
+          valueArray.resize(0);
+          ExtractSiemensDiffusionInformation(diffusionInfoString, "B_value", valueArray,
+                                             allHeaders[k]->GetTransferSyntax());
+
+          bValues.push_back( valueArray[0] );
           }
         else
           {
@@ -1121,7 +1140,7 @@ int main(int argc, char *argv[])
                                                           allHeaders[k]->GetTransferSyntax());
           vnl_matrix_fixed<double, 3, 3> bMatrix;
 
-          if ((useBMatrixGradientDirections) && (nItems == 6))
+          if (nItems == 6)
             {
             std::cout << "=============================================" << std::endl;
             std::cout << "BMatrix calculations..." << std::endl;
@@ -1196,6 +1215,7 @@ int main(int argc, char *argv[])
             valueArray.resize(0);
             ExtractSiemensDiffusionInformation(diffusionInfoString, "B_value", valueArray,
                                                allHeaders[k]->GetTransferSyntax());
+
             bValues.push_back( valueArray[0] );
             vect3d[0] = 0;
             vect3d[1] = 0;
@@ -1203,25 +1223,12 @@ int main(int argc, char *argv[])
             DiffusionVectors.push_back(vect3d);
             }
           }
-        if(bValues[ k / nStride ] > max_bValue)
-          {
-          max_bValue = bValues[k / nStride];
-          }
         }
 
 
-      // JTM - Create gradient scaling factor, which is determined by the largest b
-      // value in the scan
-      std::vector<double> gradient_scaling_factor;
 
       if(useBMatrixGradientDirections == false)
         {
-        for (unsigned int k = 0; k < nSlice; k+=nStride)
-          {
-          double scaling_factor = bValues[k / nStride] / max_bValue;
-          gradient_scaling_factor.push_back(scaling_factor);
-          }
-
         for (unsigned int k = 0; k < nSlice; k += nStride )
           {
           std::cout << "=======================================" << std::endl << std::endl;
@@ -1249,7 +1256,7 @@ int main(int argc, char *argv[])
           else
             {
             double DiffusionVector_magnitude;
-            double DiffusionVector_magnitude_difference = 0.0;
+//            double DiffusionVector_magnitude_difference = 0.0;
 
             vect3d[0] = valueArray[0];
             vect3d[1] = valueArray[1];
@@ -1257,14 +1264,14 @@ int main(int argc, char *argv[])
 
             DiffusionVector_magnitude = sqrt((vect3d[0]*vect3d[0]) + (vect3d[1]*vect3d[1]) + (vect3d[2]*vect3d[2]));
 
-            if (gradient_scaling_factor[k / nStride] != 0.0)
+//            if (gradient_scaling_factor[k / nStride] != 0.0)
               {
-              DiffusionVector_magnitude_difference = fabs(1.0 - (DiffusionVector_magnitude / gradient_scaling_factor[k / nStride]));
-              std::cout << "DiffusionVector_magnitude_difference " << DiffusionVector_magnitude_difference << std::endl;
-              std::cout << "gradient_scaling_factor " << gradient_scaling_factor[k / nStride] << std::endl;
+//              DiffusionVector_magnitude_difference = fabs(1.0 - (DiffusionVector_magnitude / gradient_scaling_factor[k / nStride]));
+//              std::cout << "DiffusionVector_magnitude_difference " << DiffusionVector_magnitude_difference << std::endl;
+//              std::cout << "gradient_scaling_factor " << gradient_scaling_factor[k / nStride] << std::endl;
               std::cout << "DiffusionVector_magnitude " << DiffusionVector_magnitude << std::endl;
-              if ((DiffusionVector_magnitude > 0.0) &&
-                  (DiffusionVector_magnitude_difference > smallGradientThreshold) && (!useBMatrixGradientDirections))
+              if(DiffusionVector_magnitude <= smallGradientThreshold)
+//              if ((DiffusionVector_magnitude_difference <= smallGradientThreshold) && (!useBMatrixGradientDirections))
                 {
                 std::cout << "ERROR: Gradient vector with unreasonably small magnitude exists." << std::endl;
                 std::cout << "Gradient #" << k << " with magnitude " << DiffusionVector_magnitude << std::endl;
@@ -1435,7 +1442,7 @@ int main(int argc, char *argv[])
     const unsigned int nUsableVolumes = nVolume-nIgnoreVolume-bad_gradient_indices.size();
     std::cout << "Number of usable volumes: " << nUsableVolumes << std::endl;
 
-    if ( StringContains(vendor, "GE") != std::string::npos ||
+    if ( StringContains(vendor, "GE") ||
          (StringContains(vendor, "SIEMENS") && !SliceMosaic) )
       {
       if (nUsableVolumes == 1)
