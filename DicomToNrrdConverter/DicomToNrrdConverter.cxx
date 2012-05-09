@@ -513,7 +513,7 @@ int main(int argc, char *argv[])
 
     bool SliceMosaic(false);
     // decide if it is a mosaic
-    if(vendor.find("SIEMENS") != std::string::npos)
+    if(StringContains(vendor,"SIEMENS"))
       {
       std::string ImageType;
       allHeaders[0]->GetElementCS(0x0008,0x0008, ImageType);
@@ -522,8 +522,7 @@ int main(int argc, char *argv[])
         SliceMosaic = true;
         }
       }
-    else if(vendor.find("GE") == std::string::npos &&
-            vendor.find("PHILIPS") == std::string::npos)
+    else if(!StringContains(vendor,"GE") && !StringContains(vendor,"PHILIPS"))
       {
       std::cerr << "Unrecognized scanner vendor |"
                 << vendor << "|" << std::endl;
@@ -707,9 +706,9 @@ int main(int argc, char *argv[])
     bool SliceOrderIS(true);
 
     // figure out slice order and mosaic arrangement.
-    if ( vendor.find("GE") != std::string::npos || (vendor.find("SIEMENS") != std::string::npos && !SliceMosaic) )
+    if ( StringContains(vendor,"GE") || (StringContains(vendor,"SIEMENS") && !SliceMosaic) )
       {
-      if(vendor.find("GE") != std::string::npos)
+      if(StringContains(vendor,"GE"))
         {
         MeasurementFrame=LPSDirCos;
         }
@@ -739,7 +738,7 @@ int main(int argc, char *argv[])
         SliceOrderIS = false;
         }
       }
-    else if ( vendor.find("SIEMENS") != std::string::npos && SliceMosaic )
+    else if ( StringContains(vendor,"SIEMENS") && SliceMosaic )
       {
       MeasurementFrame.SetIdentity(); //The DICOM version of SIEMENS that uses private tags
       // has the measurement frame represented as an identity matrix.
@@ -781,7 +780,7 @@ int main(int argc, char *argv[])
       std::cout << "Mosaic in " << mMosaic << " X " << nMosaic
                 << " blocks (total number of blocks = " << valueArray[0] << ")." << std::endl;
       }
-    else if ( vendor.find("PHILIPS") != std::string::npos && nSlice > 1)
+    else if ( StringContains(vendor,"PHILIPS") && nSlice > 1)
       // so this is not a philips multi-frame single dicom file
       {
       MeasurementFrame=LPSDirCos; //Philips oblique scans list the gradients with respect to the ImagePatientOrientation.
@@ -815,7 +814,7 @@ int main(int argc, char *argv[])
         SliceOrderIS = false;
         }
       }
-    else if ( vendor.find("PHILIPS") != std::string::npos && nSlice == 1)
+    else if ( StringContains(vendor,"PHILIPS") && nSlice == 1)
       {
       // special handling for philips multi-frame dicom later.
       }
@@ -869,7 +868,7 @@ int main(int argc, char *argv[])
     // vendor dependent tags.
     // read in gradient vectors and determin nBaseline and nMeasurement
 
-    if ( vendor.find("GE") != std::string::npos )
+    if ( StringContains(vendor,"GE") )
       {
       //
       // don't even try to convert DTI 6 Direction files
@@ -978,7 +977,7 @@ int main(int argc, char *argv[])
             {
             allHeaders[k]->GetElementOB(0x2001, 0x1004, tag, false );
             }
-          if((tag.find("I") != std::string::npos) && (b != 0) )
+          if(StringContains(tag,"I") && b != 0)
             {
             DiffusionDirectionality="ISOTROPIC";
             }
@@ -1318,12 +1317,12 @@ int main(int argc, char *argv[])
         innerSeq.GetElementCS(0x0018,0x9075,dirValue);
         }
 
-        if ( dirValue.find("ISO") != std::string::npos )
+        if ( StringContains(dirValue,"ISO") )
           {
           useVolume.push_back(0);
           ignorePhilipsSliceMultiFrame.push_back( i );
           }
-        else if (dirValue.find("NONE") != std::string::npos)
+        else if ( StringContains(dirValue,"NONE") )
           {
           useVolume.push_back(1);
           std::vector<double> v(3);
