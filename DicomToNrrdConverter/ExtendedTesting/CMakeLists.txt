@@ -239,3 +239,23 @@ midas_add_test(NAME DicomToNrrdConverterSiemensVerioTest COMMAND ${CMAKE_COMMAND
                    -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
   )
 
+midas_add_test(NAME DicomToNrrdConverterSiemensTrio_Syngo2004A_1Test COMMAND ${CMAKE_COMMAND}
+  ${CMAKE_COMMAND} -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
+                   -D TEST_COMPARE_PROGRAM=${DWICompareEXE}
+                   -D TEST_BASELINE=MIDAS{SiemensTrio-Syngo2004A-1.nrrd.md5}
+                   -D TEST_INPUT=MIDAS_TGZ{SiemensTrio-Syngo2004A-1.md5}
+                   -D TEST_TEMP_OUTPUT=${TEMP}/SiemensTrio-Syngo2004A-1.nrrd
+                   -D TEST_PROGRAM_ARGS=--useBMatrixGradientDirections
+                   -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
+  )
+
+midas_add_test(NAME DicomToNrrdConverterSiemensTrio_Syngo2004A_2Test COMMAND ${CMAKE_COMMAND}
+  ${CMAKE_COMMAND} -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
+                   -D TEST_COMPARE_PROGRAM=${DWICompareEXE}
+                   -D TEST_BASELINE=MIDAS{SiemensTrio-Syngo2004A-2.nrrd.md5}
+                   -D TEST_INPUT=MIDAS_TGZ{SiemensTrio-Syngo2004A-2.md5}
+                   -D TEST_TEMP_OUTPUT=${TEMP}/SiemensTrio-Syngo2004A-2.nrrd
+                   -D TEST_PROGRAM_ARGS=--useBMatrixGradientDirections
+                   -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
+  )
+
