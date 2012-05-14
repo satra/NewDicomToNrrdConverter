@@ -27,13 +27,20 @@
       <description><![CDATA[Directory holding the output NRRD format]]></description>
       <default>.</default>
     </directory>
-    <string>
+    <file>
+      <name>gradientVectorFile</name>
+      <longflag>--gradientVectorFile</longflag>
+      <label>Gradient Vector File</label>
+      <channel>output</channel>
+      <description><![CDATA[Text file giving gradient vectors]]></description>
+    </file>
+    <image type="diffusion-weighted">
       <name>outputVolume</name>
       <longflag>--outputVolume</longflag>
       <label>Output Filename</label>
       <channel>output</channel>
       <description><![CDATA[Output filename (.nhdr or .nrrd)]]></description>
-    </string>
+    </image>
     <double>
       <name>smallGradientThreshold</name>
       <longflag>--smallGradientThreshold</longflag>
