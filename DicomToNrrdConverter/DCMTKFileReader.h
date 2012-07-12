@@ -306,9 +306,9 @@ public:
       for(unsigned long i = 0; loItem->getOFString(ofString,i) == EC_Normal; ++i)
         {
         std::string targetStr = "";
-        for(unsigned i = 0; i < ofString.size(); i++)
+        for(unsigned j = 0; j < ofString.size(); j++)
           {
-          targetStr += ofString[i];
+          targetStr += ofString[j];
           }
         target.push_back(targetStr);
         }
