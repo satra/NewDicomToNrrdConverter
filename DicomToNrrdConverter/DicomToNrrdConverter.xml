@@ -73,5 +73,12 @@
       <description><![CDATA[Fill the nhdr header with the gradient directions and bvalues computed out of the BMatrix. Only changes behavior for Siemens data.]]></description>
       <default>false</default>
     </boolean>
+    <boolean>
+      <name>FSLOutput</name>
+      <longflag>--FSLOutput</longflag>
+      <label>Generate FSL-Compatible Output</label>
+      <description><![CDATA[write Diffusion data out as a 4D NIfTI file + a bval file and bvec file]]></description>
+      <default>false</default>
+    </boolean>
   </parameters>
 </executable>

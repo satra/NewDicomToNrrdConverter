@@ -55,7 +55,7 @@ unsigned int ConvertFromCharPtr(const char *s)
 {
   unsigned int rval = 0;
   // assume little-endian
-  for(unsigned i = 0; i < sizeof(unsigned int); i++)
+  for(unsigned i = 0; i < sizeof(unsigned int); ++i)
     {
     rval += ((unsigned int)s[i]) << (i * 8);
     }
@@ -165,7 +165,7 @@ ExtractSiemensDiffusionInformation(const std::string tagString,
   }
 
   unsigned int offset = 84;
-  for (unsigned int k = 0; k < vm; k++)
+  for (unsigned int k = 0; k < vm; ++k)
     {
     const int itemLength = ConvertFromCharPtr(infoAsCharPtr+offset+4);
     const int strideSize = static_cast<int> (ceil(static_cast<double>(itemLength)/4) * 4);
@@ -343,12 +343,40 @@ int main(int argc, char *argv[])
   // decide whether the output is a single file or
   // header/raw pair
   std::string outputVolumeDataName;
-  const size_t extensionPos = outputVolumeHeaderName.find(".nhdr");
-  if(extensionPos != std::string::npos)
+  std::string outputFSLBValFilename;
+  std::string outputFSLBVecFilename;
+  if(!FSLOutput)
     {
-    outputVolumeDataName = outputVolumeHeaderName.substr(0,extensionPos);
-    outputVolumeDataName += ".raw";
-    nrrdFormat = false;
+    const size_t extensionPos = outputVolumeHeaderName.find(".nhdr");
+    if(extensionPos != std::string::npos)
+      {
+      outputVolumeDataName = outputVolumeHeaderName.substr(0,extensionPos);
+      outputVolumeDataName += ".raw";
+      nrrdFormat = false;
+      }
+    }
+  else
+    {
+      // FSL output of gradients & BValues
+      std::string fslPrefix;
+      size_t extensionPos;
+      extensionPos = outputVolumeHeaderName.find(".nii.gz");
+      if(extensionPos == std::string::npos)
+        {
+        extensionPos = outputVolumeHeaderName.find(".nii");
+        if(extensionPos == std::string::npos)
+          {
+          std::cerr << "FSL Format output chosen, "
+                    << "but output Volume not a recognized "
+                    << "NIfTI filename " << outputVolumeHeaderName
+                    << std::endl;
+          exit(1);
+          }
+        }
+      outputFSLBValFilename = outputVolumeHeaderName.substr(0,extensionPos);
+      outputFSLBValFilename += ".bval";
+      outputFSLBVecFilename = outputVolumeHeaderName.substr(0,extensionPos);
+      outputFSLBVecFilename += ".bvec";
     }
 
   //
@@ -378,7 +406,7 @@ int main(int argc, char *argv[])
     ImageIOType::Pointer gdcmIOTest = ImageIOType::New();
 
     // for each patient directory
-    for ( unsigned int k = 0; k < directory.GetNumberOfFiles(); k++)
+    for ( unsigned int k = 0; k < directory.GetNumberOfFiles(); ++k)
       {
       std::string subdirectory( inputDicomDirectory.c_str() );
       subdirectory = subdirectory + "/" + directory.GetFile(k);
@@ -535,8 +563,6 @@ int main(int argc, char *argv[])
       return EXIT_FAILURE;
       }
 
-    VolumeType::Pointer dmImage = VolumeType::New();
-
 
     // get image dims and resolution
     unsigned short nRows, nCols;
@@ -570,7 +596,7 @@ int main(int argc, char *argv[])
 
     sliceLocationIndicator.resize( nSlice );
 
-    for (unsigned int k = 0; k < nSlice; k++)
+    for (unsigned int k = 0; k < nSlice; ++k)
       {
       std::string originString;
 
@@ -580,7 +606,7 @@ int main(int argc, char *argv[])
       // std::cerr << inputFileNames[k] << " " << originString << std::endl;
       }
 
-    for (unsigned int k = 0; k < nSlice; k++)
+    for (unsigned int k = 0; k < nSlice; ++k)
       {
       std::map<std::string,int>::iterator it = sliceLocations.find( sliceLocationStrings[k] );
       sliceLocationIndicator[k] = distance( sliceLocations.begin(), it );
@@ -613,23 +639,23 @@ int main(int argc, char *argv[])
           VolumeType::IndexType idx = I.GetIndex();
 
           // extract all values in one "column"
-          for (unsigned int k = 0; k < nSlice; k++)
+          for (unsigned int k = 0; k < nSlice; ++k)
             {
             idx[2] = k;
             v[k] = reader->GetOutput()->GetPixel( idx );
             }
 
           // permute
-          for (int k = 0; k < Nv; k++)
+          for (int k = 0; k < Nv; ++k)
             {
-            for (int m = 0; m < Ns; m++)
+            for (int m = 0; m < Ns; ++m)
               {
               w[k*Ns+m] = v[m*Nv+k];
               }
             }
 
           // put things back in order
-          for (unsigned int k = 0; k < nSlice; k++)
+          for (unsigned int k = 0; k < nSlice; ++k)
             {
             idx[2] = k;
             reader->GetOutput()->SetPixel( idx, w[k] );
@@ -932,7 +958,7 @@ int main(int argc, char *argv[])
         //NOTE:  Philips interleaves the directions, so the all gradient directions can be
         //determined in the first "nVolume" slices which represents the first slice from each
         //of the gradient volumes.
-        for (unsigned int k = 0; k < nVolume; k++ /*nSliceInVolume*/)
+        for (unsigned int k = 0; k < nVolume; ++k)
           {
           std::string DiffusionDirectionality;
           bool useSupplement49Definitions(false);
@@ -983,7 +1009,7 @@ int main(int argc, char *argv[])
             //std::cout << " SKIPPING ISOTROPIC Diffusion. " << std::endl;
             //std::cout << "HACK: IGNORE IMAGEFILE:   " << k << " of " << filenames.size() << " " << filenames[k] << std::endl;
             // Ignore the Trace like image
-            nIgnoreVolume++;
+            ++nIgnoreVolume;
             useVolume.push_back(0);
             continue;
             }
@@ -1086,7 +1112,7 @@ int main(int argc, char *argv[])
           originSeq.GetSequence(0,innerSeq);
           std::string originString;
           innerSeq.GetElementDS(0x0020,0x0032,originString);
-          sliceLocations[originString]++;
+          ++sliceLocations[originString];
           }
 
           std::string dirValue;
@@ -1170,7 +1196,7 @@ int main(int argc, char *argv[])
         nVolume = nItems/nSliceInVolume;
         nIgnoreVolume = ignorePhilipsSliceMultiFrame.size()/nSliceInVolume;
 
-        for( unsigned int k2 = 0; k2 < bValues.size(); k2++ )
+        for( unsigned int k2 = 0; k2 < bValues.size(); ++k2 )
           {
           std::cout << k2 << ": direction: " <<  DiffusionVectors[k2][0]
                     << ", " << DiffusionVectors[k2][1] << ", " << DiffusionVectors[k2][2]
@@ -1396,18 +1422,17 @@ int main(int argc, char *argv[])
       FreeHeaders(allHeaders);
       return EXIT_FAILURE;
       }
-
     ///////////////////////////////////////////////
     // write volumes in raw format
     itk::ImageFileWriter< VolumeType >::Pointer rawWriter = itk::ImageFileWriter< VolumeType >::New();
     itk::RawImageIO<PixelValueType, 3>::Pointer rawIO = itk::RawImageIO<PixelValueType, 3>::New();
-    //std::string rawFileName = outputDir + "/" + dataname;
-    if ( !nrrdFormat )
-      {
-      rawWriter->SetFileName( outputVolumeDataName.c_str() );
-      rawWriter->SetImageIO( rawIO );
-      rawIO->SetByteOrderToLittleEndian();
-      }
+    rawWriter->SetImageIO( rawIO );
+    rawIO->SetByteOrderToLittleEndian();
+    rawWriter->SetFileName( outputVolumeDataName.c_str() );
+
+    //
+    // dmImage is a constructed volume.
+    VolumeType::Pointer dmImage;
 
     // imgWriter is used to write out image in case it is not a dicom DWI image
     itk::ImageFileWriter< VolumeType >::Pointer imgWriter = itk::ImageFileWriter< VolumeType >::New();
@@ -1421,42 +1446,7 @@ int main(int argc, char *argv[])
     if ( StringContains(vendor, "GE") ||
          (StringContains(vendor, "SIEMENS") && !SliceMosaic) )
       {
-      if (nUsableVolumes == 1)
-        {
-        imgWriter->SetInput( reader->GetOutput() );
-        imgWriter->SetFileName( outputVolumeHeaderName.c_str() );
-        try
-          {
-          imgWriter->Update();
-          }
-        catch (itk::ExceptionObject &excp)
-          {
-          std::cerr << "Exception thrown while reading the series" << std::endl;
-          std::cerr << excp << std::endl;
-          FreeHeaders(allHeaders);
-          return EXIT_FAILURE;
-          }
-        FreeHeaders(allHeaders);
-        return EXIT_SUCCESS;
-        }
-      else
-        {
-        if ( !nrrdFormat )
-          {
-          rawWriter->SetInput( reader->GetOutput() );
-          try
-            {
-            rawWriter->Update();
-            }
-          catch (itk::ExceptionObject &excp)
-            {
-            std::cerr << "Exception thrown while reading the series" << std::endl;
-            std::cerr << excp << std::endl;
-            FreeHeaders(allHeaders);
-            return EXIT_FAILURE;
-            }
-          }
-        }
+      dmImage = reader->GetOutput();
       }
     else if ( StringContains(vendor, "SIEMENS") && SliceMosaic)
       {
@@ -1488,6 +1478,7 @@ int main(int argc, char *argv[])
       dmSize[2] = nUsableVolumes * nSliceInVolume;
 
       region.SetSize( dmSize );
+      dmImage = VolumeType::New();
       dmImage->CopyInformation( img );
       dmImage->SetRegions( region );
       dmImage->Allocate();
@@ -1503,9 +1494,9 @@ int main(int argc, char *argv[])
 
       bool bad_slice = false;
       unsigned int bad_slice_counter = 0;
-      for (unsigned int k = 0; k < original_slice_number; k++)
+      for (unsigned int k = 0; k < original_slice_number; ++k)
         {
-        for ( unsigned int j = 0; j < bad_gradient_indices.size(); j++)
+        for ( unsigned int j = 0; j < bad_gradient_indices.size(); ++j)
           {
           unsigned int start_bad_slice_number = bad_gradient_indices[j] * nSliceInVolume;
           unsigned int end_bad_slice_number = start_bad_slice_number + (nSliceInVolume - 1);
@@ -1513,7 +1504,7 @@ int main(int argc, char *argv[])
           if (k >= start_bad_slice_number && k <= end_bad_slice_number)
             {
             bad_slice = true;
-            bad_slice_counter++;
+            ++bad_slice_counter;
             break;
             }
           else
@@ -1549,42 +1540,6 @@ int main(int argc, char *argv[])
           }
         }
 
-      if (nUsableVolumes == 1)
-        {
-        imgWriter->SetInput( dmImage );
-        imgWriter->SetFileName( outputVolumeHeaderName.c_str() );
-        try
-          {
-          imgWriter->Update();
-          }
-        catch (itk::ExceptionObject &excp)
-          {
-          std::cerr << "Exception thrown while reading the series" << std::endl;
-          std::cerr << excp << std::endl;
-          FreeHeaders(allHeaders);
-          return EXIT_FAILURE;
-          }
-        FreeHeaders(allHeaders);
-        return EXIT_SUCCESS;
-        }
-      else
-        {
-        if ( !nrrdFormat )
-          {
-          rawWriter->SetInput( dmImage );
-          try
-            {
-            rawWriter->Update();
-            }
-          catch (itk::ExceptionObject &excp)
-            {
-            std::cerr << "Exception thrown while reading the series" << std::endl;
-            std::cerr << excp << std::endl;
-            FreeHeaders(allHeaders);
-            return EXIT_FAILURE;
-            }
-          }
-        }
       }
     else if (StringContains(vendor, "PHILIPS"))
       {
@@ -1597,6 +1552,7 @@ int main(int argc, char *argv[])
       dmSize[2] = nSliceInVolume * (nUsableVolumes);
 
       region.SetSize( dmSize );
+      dmImage = VolumeType::New();
       dmImage->CopyInformation( img );
       dmImage->SetRegions( region );
       dmImage->Allocate();
@@ -1608,11 +1564,11 @@ int main(int argc, char *argv[])
       region.SetSize(2, 1);
 
       unsigned int count = 0;
-      for (unsigned int i = 0; i < nVolume; i++)
+      for (unsigned int i = 0; i < nVolume; ++i)
         {
         if (useVolume[i] == 1)
           {
-          for (unsigned int k = 0; k < nSliceInVolume; k++)
+          for (unsigned int k = 0; k < nSliceInVolume; ++k)
             {
             dmRegion.SetIndex(0, 0);
             dmRegion.SetIndex(1, 0);
@@ -1632,43 +1588,7 @@ int main(int argc, char *argv[])
               dmIt.Set( imIt.Get() );
               }
             }
-          count++;
-          }
-        }
-      if (nUsableVolumes == 1)
-        {
-        imgWriter->SetInput( dmImage );
-        imgWriter->SetFileName( outputVolumeHeaderName.c_str() );
-        try
-          {
-          imgWriter->Update();
-          }
-        catch (itk::ExceptionObject &excp)
-          {
-          std::cerr << "Exception thrown while reading the series" << std::endl;
-          std::cerr << excp << std::endl;
-          FreeHeaders(allHeaders);
-          return EXIT_FAILURE;
-          }
-        FreeHeaders(allHeaders);
-        return EXIT_SUCCESS;
-        }
-      else
-        {
-        if ( !nrrdFormat )
-          {
-          rawWriter->SetInput( reader->GetOutput() );
-          try
-            {
-            rawWriter->Update();
-            }
-          catch (itk::ExceptionObject &excp)
-            {
-            std::cerr << "Exception thrown while reading the series" << std::endl;
-            std::cerr << excp << std::endl;
-            FreeHeaders(allHeaders);
-            return EXIT_FAILURE;
-            }
+          ++count;
           }
         }
       //Verify sizes
@@ -1700,87 +1620,46 @@ int main(int argc, char *argv[])
       return EXIT_SUCCESS;
       }
 
+    //
+    // FSLOutput requires a NIfT file
+    if (nUsableVolumes == 1 || FSLOutput)
+      {
+      imgWriter->SetInput( dmImage );
+      imgWriter->SetFileName( outputVolumeHeaderName.c_str() );
+      try
+        {
+        imgWriter->Update();
+        }
+      catch (itk::ExceptionObject &excp)
+        {
+        std::cerr << "Exception thrown while reading the series" << std::endl;
+        std::cerr << excp << std::endl;
+        FreeHeaders(allHeaders);
+        return EXIT_FAILURE;
+        }
+      FreeHeaders(allHeaders);
+      return EXIT_SUCCESS;
+      }
+    else if ( !nrrdFormat )
+      {
+      rawWriter->SetInput( dmImage );
+      try
+        {
+        rawWriter->Update();
+        }
+      catch (itk::ExceptionObject &excp)
+        {
+        std::cerr << "Exception thrown while reading the series" << std::endl;
+        std::cerr << excp << std::endl;
+        FreeHeaders(allHeaders);
+        return EXIT_FAILURE;
+        }
+      }
 
     const vnl_matrix_fixed<double,3,3> InverseMeasurementFrame= MeasurementFrame.GetInverse();
-    {
-    //////////////////////////////////////////////
-    // write header file
-    // This part follows a DWI NRRD file in NRRD format 5.
-    // There should be a better way using itkNRRDImageIO.
 
-    std::ofstream header;
-    //std::string headerFileName = outputDir + "/" + outputFileName;
-
-    header.open (outputVolumeHeaderName.c_str(), std::ios::out | std::ios::binary);
-    header << "NRRD0005" << std::endl;
-
-    if (!nrrdFormat)
-      {
-      header << "content: exists(" << itksys::SystemTools::GetFilenameName(outputVolumeDataName) << ",0)" << std::endl;
-      }
-    header << "type: short" << std::endl;
-    header << "dimension: 4" << std::endl;
-
-    // need to check
-    header << "space: " << nrrdSpaceDefinition << "" << std::endl;
-    // in nrrd, size array is the number of pixels in 1st, 2nd, 3rd, ... dimensions
-    header << "sizes: " << nCols << " " << nRows << " " << nSliceInVolume << " " << nUsableVolumes << std::endl;
-    header << "thicknesses:  NaN  NaN " << sliceSpacing << " NaN" << std::endl;
-
-    // need to check
-    header << "space directions: "
-           << "(" << (NRRDSpaceDirection[0][0]) << ","<< (NRRDSpaceDirection[1][0]) << ","<< (NRRDSpaceDirection[2][0]) << ") "
-           << "(" << (NRRDSpaceDirection[0][1]) << ","<< (NRRDSpaceDirection[1][1]) << ","<< (NRRDSpaceDirection[2][1]) << ") "
-           << "(" << (NRRDSpaceDirection[0][2]) << ","<< (NRRDSpaceDirection[1][2]) << ","<< (NRRDSpaceDirection[2][2])
-           << ") none" << std::endl;
-    header << "centerings: cell cell cell ???" << std::endl;
-    header << "kinds: space space space list" << std::endl;
-
-    header << "endian: little" << std::endl;
-    header << "encoding: raw" << std::endl;
-    header << "space units: \"mm\" \"mm\" \"mm\"" << std::endl;
-    header << "space origin: "
-           <<"(" << ImageOrigin[0] << ","<< ImageOrigin[1] << ","<< ImageOrigin[2] << ") " << std::endl;
-    if (!nrrdFormat)
-      {
-      header << "data file: " << itksys::SystemTools::GetFilenameName(outputVolumeDataName) << std::endl;
-      }
-
-    // For scanners, the measurement frame for the gradient directions is the same as the
-    // Excerpt from http://teem.sourceforge.net/nrrd/format.html definition of "measurement frame:"
-    // There is also the possibility that a measurement frame
-    // should be recorded for an image even though it is storing
-    // only scalar values (e.g., a sequence of diffusion-weighted MR
-    // images has a measurement frame for the coefficients of
-    // the diffusion-sensitizing gradient directions, and
-    // the measurement frame field is the logical store
-    // this information).
-    //
-    // It was noticed on oblique Philips DTI scans that the prescribed protocol directions were
-    // rotated by the ImageOrientationPatient amount and recorded in the DICOM header.
-    // In order to compare two different scans to determine if the same protocol was prosribed,
-    // it is necessary to multiply each of the recorded diffusion gradient directions by
-    // the inverse of the LPSDirCos.
-    if(useIdentityMeaseurementFrame)
-      {
-      header << "measurement frame: "
-             << "(" << 1 << ","<< 0 << ","<< 0 << ") "
-             << "(" << 0 << ","<< 1 << ","<< 0 << ") "
-             << "(" << 0 << ","<< 0 << ","<< 1 << ")"
-             << std::endl;
-      }
-    else
-      {
-      header << "measurement frame: "
-             << "(" << (MeasurementFrame[0][0]) << ","<< (MeasurementFrame[1][0]) << ","<< (MeasurementFrame[2][0]) << ") "
-             << "(" << (MeasurementFrame[0][1]) << ","<< (MeasurementFrame[1][1]) << ","<< (MeasurementFrame[2][1]) << ") "
-             << "(" << (MeasurementFrame[0][2]) << ","<< (MeasurementFrame[1][2]) << ","<< (MeasurementFrame[2][2]) << ")"
-             << std::endl;
-      }
-
-    header << "modality:=DWMRI" << std::endl;
     //  float bValue = 0;
-    for (unsigned int k = 0; k < nUsableVolumes; k++)
+    for (unsigned int k = 0; k < nUsableVolumes; ++k)
       {
       if (bValues[k] > maxBvalue)
         {
@@ -1788,14 +1667,8 @@ int main(int argc, char *argv[])
         }
       }
 
-    // this is the norminal BValue, i.e. the largest one.
-    header << "DWMRI_b-value:=" << maxBvalue << std::endl;
-
-    //  the following three lines are for older NRRD format, where
-    //  baseline images are always in the begining.
-    //  header << "DWMRI_gradient_0000:=0  0  0" << std::endl;
-    //  header << "DWMRI_NEX_0000:=" << nBaseline << std::endl;
-    //  need to check
+    // construct vector of gradients
+    std::vector<std::vector<double> > gradientVectors;
     if(gradientVectorFile != "")
       {
       // override gradients embedded in file with an external file.
@@ -1814,101 +1687,242 @@ int main(int argc, char *argv[])
         }
       for(unsigned int imageCount = 0; !gradientFile.eof(); ++imageCount)
         {
-        double vec[3];
-        unsigned int i;
-        for(i = 0; !gradientFile.eof() &&  i < 3; i++)
+        std::vector<double> vec(3);
+        for(unsigned i = 0; !gradientFile.eof() &&  i < 3; ++i)
           {
           gradientFile >> vec[i];
           }
-        header << "DWMRI_gradient_" << std::setw(4) << std::setfill('0') << imageCount << ":="
-               << vec[0] << "   "
-               << vec[1] << "   "
-               << vec[2] << std::endl;
+        gradientVectors.push_back(vec);
         }
       }
     else
       {
-      unsigned int shift_index = 0;
       unsigned int original_volume_number = nUsableVolumes + bad_gradient_indices.size();
 
-      for (unsigned int k = 0; k < original_volume_number; k++)
+      for (unsigned int k = 0; k < original_volume_number; ++k)
         {
         float scaleFactor = 0;
         bool print_gradient = true;
 
-        for (unsigned int j = 0; j < bad_gradient_indices.size(); j++)
+        for (unsigned int j = 0; j < bad_gradient_indices.size(); ++j)
           {
           if (k == bad_gradient_indices[j])
             {
-            shift_index++;
             print_gradient = false;
-            continue;
+            break;
             }
           }
-
         if (maxBvalue > 0)
           {
           scaleFactor = sqrt( bValues[k]/maxBvalue );
           }
         std::cout << "For Multiple BValues: " << k << " -- " << bValues[k] << " / " << maxBvalue << " = " << scaleFactor << std::endl;
-
+        std::vector<double> vec(3);
         if (print_gradient == true)
           {
           if(useIdentityMeaseurementFrame)
             {
             vnl_vector_fixed<double,3> RotatedDiffusionVectors=InverseMeasurementFrame*(DiffusionVectors[k-nBaseline]);
-            header << "DWMRI_gradient_" << std::setw(4) << std::setfill('0') << k << ":="
-                   << RotatedDiffusionVectors[0] * scaleFactor << "   "
-                   << RotatedDiffusionVectors[1] * scaleFactor << "   "
-                   << RotatedDiffusionVectors[2] * scaleFactor << std::endl;
+            for(unsigned ind = 0; ind < 3; ++ind)
+              {
+              vec[ind] = RotatedDiffusionVectors[ind] * scaleFactor;
+              }
             }
           else
             {
             if(useBMatrixGradientDirections)
               {
-              header << "DWMRI_gradient_" << std::setw(4) << std::setfill('0') << k << ":="
-                     << DiffusionVectors[k][0] << "   "
-                     << DiffusionVectors[k][1] << "   "
-                     << DiffusionVectors[k][2] << std::endl;
+              for(unsigned ind = 0; ind < 3; ++ind)
+                {
+                vec[ind] = DiffusionVectors[k][ind];
+                }
               }
             else
               {
-              unsigned int printed_gradient_number = k - shift_index;
-
-              header << "DWMRI_gradient_" << std::setw(4) << std::setfill('0') << printed_gradient_number << ":="
-                     << DiffusionVectors[k-nBaseline][0] * scaleFactor << "   "
-                     << DiffusionVectors[k-nBaseline][1] * scaleFactor << "   "
-                     << DiffusionVectors[k-nBaseline][2] * scaleFactor << std::endl;
+              for(unsigned ind = 0; ind < 3; ++ind)
+                {
+                vec[ind] = DiffusionVectors[k-nBaseline][ind] * scaleFactor;
+                }
               }
             }
+          gradientVectors.push_back(vec);
           }
         else
           {
           std::cout << "Gradient " << k << " was removed and will not be printed in the NRRD header file." << std::endl;
           }
-
-        //std::cout << "Consistent Orientation Checks." << std::endl;
-        //std::cout << "DWMRI_gradient_" << std::setw(4) << std::setfill('0') << k << ":="
-        //  << LPSDirCos.GetInverse()*DiffusionVectors[k-nBaseline] << std::endl;
         }
       }
-    // write data in the same file is .nrrd was chosen
-    header << std::endl;;
-    if (nrrdFormat && SliceMosaic)
-      {
-      unsigned long nVoxels = dmImage->GetBufferedRegion().GetNumberOfPixels();
-      header.write( reinterpret_cast<char *>(dmImage->GetBufferPointer()),
-                    nVoxels*sizeof(short) );
-      }
-    else if (nrrdFormat)
-      {
-      unsigned long nVoxels = reader->GetOutput()->GetBufferedRegion().GetNumberOfPixels();
-      header.write( reinterpret_cast<char *>(reader->GetOutput()->GetBufferPointer()),
-                    nVoxels*sizeof(short) );
-      }
 
-    header.close();
-    }
+    //////////////////////////////////////////////
+    // write header file
+    // This part follows a DWI NRRD file in NRRD format 5.
+    // There should be a better way using itkNRRDImageIO.
+    if(!FSLOutput)
+      {
+      std::ofstream header;
+      //std::string headerFileName = outputDir + "/" + outputFileName;
+
+      header.open (outputVolumeHeaderName.c_str(), std::ios::out | std::ios::binary);
+      header << "NRRD0005" << std::endl;
+
+      if (!nrrdFormat)
+        {
+        header << "content: exists(" << itksys::SystemTools::GetFilenameName(outputVolumeDataName) << ",0)" << std::endl;
+        }
+      header << "type: short" << std::endl;
+      header << "dimension: 4" << std::endl;
+
+      // need to check
+      header << "space: " << nrrdSpaceDefinition << "" << std::endl;
+      // in nrrd, size array is the number of pixels in 1st, 2nd, 3rd, ... dimensions
+      header << "sizes: " << nCols << " " << nRows << " " << nSliceInVolume << " " << nUsableVolumes << std::endl;
+      header << "thicknesses:  NaN  NaN " << sliceSpacing << " NaN" << std::endl;
+
+      // need to check
+      header << "space directions: "
+             << "(" << (NRRDSpaceDirection[0][0]) << ","<< (NRRDSpaceDirection[1][0]) << ","<< (NRRDSpaceDirection[2][0]) << ") "
+             << "(" << (NRRDSpaceDirection[0][1]) << ","<< (NRRDSpaceDirection[1][1]) << ","<< (NRRDSpaceDirection[2][1]) << ") "
+             << "(" << (NRRDSpaceDirection[0][2]) << ","<< (NRRDSpaceDirection[1][2]) << ","<< (NRRDSpaceDirection[2][2])
+             << ") none" << std::endl;
+      header << "centerings: cell cell cell ???" << std::endl;
+      header << "kinds: space space space list" << std::endl;
+
+      header << "endian: little" << std::endl;
+      header << "encoding: raw" << std::endl;
+      header << "space units: \"mm\" \"mm\" \"mm\"" << std::endl;
+      header << "space origin: "
+             <<"(" << ImageOrigin[0] << ","<< ImageOrigin[1] << ","<< ImageOrigin[2] << ") " << std::endl;
+      if (!nrrdFormat)
+        {
+        header << "data file: " << itksys::SystemTools::GetFilenameName(outputVolumeDataName) << std::endl;
+        }
+
+      // For scanners, the measurement frame for the gradient directions is the same as the
+      // Excerpt from http://teem.sourceforge.net/nrrd/format.html definition of "measurement frame:"
+      // There is also the possibility that a measurement frame
+      // should be recorded for an image even though it is storing
+      // only scalar values (e.g., a sequence of diffusion-weighted MR
+      // images has a measurement frame for the coefficients of
+      // the diffusion-sensitizing gradient directions, and
+      // the measurement frame field is the logical store
+      // this information).
+      //
+      // It was noticed on oblique Philips DTI scans that the prescribed protocol directions were
+      // rotated by the ImageOrientationPatient amount and recorded in the DICOM header.
+      // In order to compare two different scans to determine if the same protocol was prosribed,
+      // it is necessary to multiply each of the recorded diffusion gradient directions by
+      // the inverse of the LPSDirCos.
+      if(useIdentityMeaseurementFrame)
+        {
+        header << "measurement frame: "
+               << "(" << 1 << ","<< 0 << ","<< 0 << ") "
+               << "(" << 0 << ","<< 1 << ","<< 0 << ") "
+               << "(" << 0 << ","<< 0 << ","<< 1 << ")"
+               << std::endl;
+        }
+      else
+        {
+        header << "measurement frame: "
+               << "(" << (MeasurementFrame[0][0]) << ","<< (MeasurementFrame[1][0]) << ","<< (MeasurementFrame[2][0]) << ") "
+               << "(" << (MeasurementFrame[0][1]) << ","<< (MeasurementFrame[1][1]) << ","<< (MeasurementFrame[2][1]) << ") "
+               << "(" << (MeasurementFrame[0][2]) << ","<< (MeasurementFrame[1][2]) << ","<< (MeasurementFrame[2][2]) << ")"
+               << std::endl;
+        }
+
+      header << "modality:=DWMRI" << std::endl;
+      // this is the norminal BValue, i.e. the largest one.
+      header << "DWMRI_b-value:=" << maxBvalue << std::endl;
+
+      //  the following three lines are for older NRRD format, where
+      //  baseline images are always in the begining.
+      //  header << "DWMRI_gradient_0000:=0  0  0" << std::endl;
+      //  header << "DWMRI_NEX_0000:=" << nBaseline << std::endl;
+      //  need to check
+      if(gradientVectorFile != "")
+        {
+        for(unsigned int imageCount = 0; imageCount < nUsableVolumes; ++imageCount)
+          {
+          header << "DWMRI_gradient_" << std::setw(4) << std::setfill('0') << imageCount << ":="
+                 << gradientVectors[imageCount][0] << "   "
+                 << gradientVectors[imageCount][1] << "   "
+                 << gradientVectors[imageCount][2] 
+                 << std::endl;
+          }
+        }
+      else
+        {
+        unsigned int original_volume_number = nUsableVolumes + bad_gradient_indices.size();
+
+        // above, where the gradientVectors is filled out, the same
+        // logic is used to skip bad gradients.  Only good gradients are
+        // put into the gradientVectors.  The gradient rejection logic
+        // is duplicated below, so the gradient numbers will be correct
+        // in the nrrd header
+        unsigned int gradientVecIndex = 0;
+        for (unsigned int k = 0; k < original_volume_number; ++k)
+          {
+          float scaleFactor = 0;
+          bool print_gradient = true;
+
+          for (unsigned int j = 0; j < bad_gradient_indices.size(); ++j)
+            {
+            if (k == bad_gradient_indices[j])
+              {
+              print_gradient = false;
+              break;
+              }
+            }
+          if (print_gradient == true)
+            {
+            header << "DWMRI_gradient_" << std::setw(4) << std::setfill('0') << k << ":="
+                   << gradientVectors[gradientVecIndex][0]  << "   "
+                   << gradientVectors[gradientVecIndex][1]  << "   "
+                   << gradientVectors[gradientVecIndex][2]
+                   << std::endl;
+            ++gradientVecIndex;
+            }
+          }
+        }
+      // write data in the same file is .nrrd was chosen
+      header << std::endl;;
+      if (nrrdFormat && SliceMosaic)
+        {
+        unsigned long nVoxels = dmImage->GetBufferedRegion().GetNumberOfPixels();
+        header.write( reinterpret_cast<char *>(dmImage->GetBufferPointer()),
+                      nVoxels*sizeof(short) );
+        }
+      else if (nrrdFormat)
+        {
+        unsigned long nVoxels = reader->GetOutput()->GetBufferedRegion().GetNumberOfPixels();
+        header.write( reinterpret_cast<char *>(reader->GetOutput()->GetBufferPointer()),
+                      nVoxels*sizeof(short) );
+        }
+
+      header.close();
+      }
+    else
+      {
+      // write out in FSL format
+      std::ofstream bValFile;
+      bValFile.open(outputFSLBValFilename.c_str(),std::ios::out | std::ios::binary);
+      for(unsigned int k = 0; k < nUsableVolumes; ++k)
+        {
+        bValFile << bValues[k] << std::endl;
+        }
+      bValFile.close();
+
+      std::ofstream bVecFile;
+      bVecFile.open(outputFSLBVecFilename.c_str(),std::ios::out | std::ios::binary);
+      for(unsigned int k = 0; k < gradientVectors.size(); ++k)
+        {
+        bVecFile << gradientVectors[k][0] << " "
+                 << gradientVectors[k][1] << " "
+                 << gradientVectors[k][1]
+                 << std::endl;
+        }
+      bVecFile.close();
+      }
 
     if( writeProtocolGradientsFile == true )
       {
@@ -1931,7 +1945,7 @@ int main(int argc, char *argv[])
       protocolGradientsFile << "==================================" << std::endl;
       protocolGradientsFile << "MeasurementFrame: " << std::endl << MeasurementFrame << std::endl;
       protocolGradientsFile << "==================================" << std::endl;
-      for (unsigned int k = 0; k < nUsableVolumes; k++)
+      for (unsigned int k = 0; k < nUsableVolumes; ++k)
         {
         float scaleFactor = 0;
         if (maxBvalue > 0)
@@ -1944,7 +1958,7 @@ int main(int argc, char *argv[])
                               << DiffusionVectors[k-nBaseline][2] * scaleFactor << "]" <<std::endl;
         }
       protocolGradientsFile << "==================================" << std::endl;
-      for (unsigned int k = 0; k < nUsableVolumes; k++)
+      for (unsigned int k = 0; k < nUsableVolumes; ++k)
         {
         float scaleFactor = 0;
         if (maxBvalue > 0)
@@ -1967,6 +1981,7 @@ int main(int argc, char *argv[])
     FreeHeaders(allHeaders);
     return EXIT_FAILURE;
     }
+
   FreeHeaders(allHeaders);
   return EXIT_SUCCESS;
 }
