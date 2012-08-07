@@ -1622,7 +1622,22 @@ int main(int argc, char *argv[])
 
     //
     // FSLOutput requires a NIfT file
-    if (nUsableVolumes == 1 || FSLOutput)
+    if(!nrrdFormat && !FSLOutput)
+      {
+      rawWriter->SetInput( dmImage );
+      try
+        {
+        rawWriter->Update();
+        }
+      catch (itk::ExceptionObject &excp)
+        {
+        std::cerr << "Exception thrown while reading the series" << std::endl;
+        std::cerr << excp << std::endl;
+        FreeHeaders(allHeaders);
+        return EXIT_FAILURE;
+        }
+      }
+    else
       {
       imgWriter->SetInput( dmImage );
       imgWriter->SetFileName( outputVolumeHeaderName.c_str() );
@@ -1637,22 +1652,15 @@ int main(int argc, char *argv[])
         FreeHeaders(allHeaders);
         return EXIT_FAILURE;
         }
-      FreeHeaders(allHeaders);
-      return EXIT_SUCCESS;
-      }
-    else if ( !nrrdFormat )
-      {
-      rawWriter->SetInput( dmImage );
-      try
+      //
+      // A single usable volume indicates the input is not a DWI file
+      // and therefore DicomToNrrdConverter is simply that -- it
+      // converts a DICOM volume to whatever format you specify by way
+      // of the output filename.
+      if (nUsableVolumes == 1)
         {
-        rawWriter->Update();
-        }
-      catch (itk::ExceptionObject &excp)
-        {
-        std::cerr << "Exception thrown while reading the series" << std::endl;
-        std::cerr << excp << std::endl;
         FreeHeaders(allHeaders);
-        return EXIT_FAILURE;
+        return EXIT_SUCCESS;
         }
       }
 
