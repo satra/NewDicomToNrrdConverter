@@ -36,12 +36,43 @@ endif( NOT EXISTS ${TEST_BASELINE})
 set(Test_Command_Line
   ${TEST_PROGRAM} --inputDicomDirectory ${TEST_INPUT} --outputVolume ${TEST_TEMP_OUTPUT} ${TEST_PROGRAM_ARGS}
   )
+if(TEST_FSL_FLAG)
+  list(INSERT Test_Command_Line 1 --FSLOutput)
+endif()
+
 message("Test_Command_Line=${Test_Command_Line}")
 execute_process(
   COMMAND ${Test_Command_Line}
   ERROR_VARIABLE TEST_ERROR
   RESULT_VARIABLE TEST_RESULT
   )
+
+if(TEST_FSL_FLAG)
+  if(NOT TEST_BASELINE_BVEC)
+    message( FATAL_ERROR "Require TEST_BASELINE_BVEC to be defined" )
+  endif()
+  if(NOT TEST_BASELINE_BVAL)
+    message( FATAL_ERROR "Require TEST_BASELINE_BVAL to be defined" )
+  endif()
+  if(NOT TEST_TEMP_BVEC)
+    message( FATAL_ERROR "Require TEST_TEMP_BVEC to be defined" )
+  endif()
+  if(NOT TEST_TEMP_BVAL)
+    message( FATAL_ERROR "Require TEST_TEMP_BVAL to be defined" )
+  endif()
+
+  foreach(file VEC VAL)
+    file(READ ${TEST_BASELINE_B${file}} baseline)
+    file(READ ${TEST_TEMP_B${file}} testoutput)
+    if(testoutput STREQUAL baseline)
+      message("B${file} output matches")
+    else()
+      message(FATAL_ERROR "B${file} output doesn't match
+${testoutput}
+${baseline}")
+    endif()
+  endforeach()
+endif()
 
 # if the return value is !=0 bail out
 if( TEST_RESULT )

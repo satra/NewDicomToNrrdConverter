@@ -295,7 +295,8 @@ WriteVolume( VolumeType::Pointer img, const std::string fname )
     }
   catch (itk::ExceptionObject &excp)
     {
-    std::cerr << "Exception thrown while reading the series" << std::endl;
+    std::cerr << "Exception thrown while writing "
+              << fname << std::endl;
     std::cerr << excp << std::endl;
     return EXIT_FAILURE;
     }
@@ -1422,13 +1423,6 @@ int main(int argc, char *argv[])
       FreeHeaders(allHeaders);
       return EXIT_FAILURE;
       }
-    ///////////////////////////////////////////////
-    // write volumes in raw format
-    itk::ImageFileWriter< VolumeType >::Pointer rawWriter = itk::ImageFileWriter< VolumeType >::New();
-    itk::RawImageIO<PixelValueType, 3>::Pointer rawIO = itk::RawImageIO<PixelValueType, 3>::New();
-    rawWriter->SetImageIO( rawIO );
-    rawIO->SetByteOrderToLittleEndian();
-    rawWriter->SetFileName( outputVolumeDataName.c_str() );
 
     //
     // dmImage is a constructed volume.
@@ -1622,48 +1616,48 @@ int main(int argc, char *argv[])
 
     //
     // FSLOutput requires a NIfT file
-    if(!nrrdFormat && !FSLOutput)
+    if(!FSLOutput)
       {
-      rawWriter->SetInput( dmImage );
-      try
+      if(!nrrdFormat)
         {
-        rawWriter->Update();
+        itk::ImageFileWriter< VolumeType >::Pointer rawWriter = itk::ImageFileWriter< VolumeType >::New();
+        itk::RawImageIO<PixelValueType, 3>::Pointer rawIO = itk::RawImageIO<PixelValueType, 3>::New();
+        rawWriter->SetImageIO( rawIO );
+        rawIO->SetByteOrderToLittleEndian();
+        rawWriter->SetFileName( outputVolumeDataName.c_str() );
+        rawWriter->SetInput( dmImage );
+        try
+          {
+          rawWriter->Update();
+          }
+        catch (itk::ExceptionObject &excp)
+          {
+          std::cerr << "Exception thrown while reading the series" << std::endl;
+          std::cerr << excp << std::endl;
+          FreeHeaders(allHeaders);
+          return EXIT_FAILURE;
+          }
         }
-      catch (itk::ExceptionObject &excp)
+      else if(nUsableVolumes == 1)
         {
-        std::cerr << "Exception thrown while reading the series" << std::endl;
-        std::cerr << excp << std::endl;
+        int rval = WriteVolume(dmImage,outputVolumeHeaderName);
+        //
+        // A single usable volume indicates the input is not a DWI file
+        // and therefore DicomToNrrdConverter is simply that -- it
+        // converts a DICOM volume to whatever format you specify by way
+        // of the output filename.
         FreeHeaders(allHeaders);
-        return EXIT_FAILURE;
+        return rval;
         }
       }
     else
       {
-      imgWriter->SetInput( dmImage );
-      imgWriter->SetFileName( outputVolumeHeaderName.c_str() );
-      try
+      if(WriteVolume(dmImage,outputVolumeHeaderName) != EXIT_SUCCESS)
         {
-        imgWriter->Update();
-        }
-      catch (itk::ExceptionObject &excp)
-        {
-        std::cerr << "Exception thrown while reading the series" << std::endl;
-        std::cerr << excp << std::endl;
         FreeHeaders(allHeaders);
         return EXIT_FAILURE;
         }
-      //
-      // A single usable volume indicates the input is not a DWI file
-      // and therefore DicomToNrrdConverter is simply that -- it
-      // converts a DICOM volume to whatever format you specify by way
-      // of the output filename.
-      if (nUsableVolumes == 1)
-        {
-        FreeHeaders(allHeaders);
-        return EXIT_SUCCESS;
-        }
       }
-
     const vnl_matrix_fixed<double,3,3> InverseMeasurementFrame= MeasurementFrame.GetInverse();
 
     //  float bValue = 0;

@@ -18,12 +18,13 @@ include_directories(${ModuleDescriptionParser_SOURCE_DIR})
 find_package(SlicerExecutionModel REQUIRED GenerateCLP)
 include(${GenerateCLP_USE_FILE})
 
-set (CLP DWICompare)
-set ( ${CLP}_SOURCE ${CLP}.cxx)
-generateclp(${CLP}_SOURCE ${CLP}.xml)
-add_executable(${CLP} ${${CLP}_SOURCE})
-target_link_libraries (${CLP} ${ITK_LIBRARIES} ${DCMTK_LIBRARIES} oflog ${ZLIB_LIBRARIES})
-set(DWICompareEXE ${DicomToNrrdConverter_BINARY_DIR}/ExtendedTesting/${CLP})
+foreach(CLP DWICompare DWISimpleCompare)
+  set ( ${CLP}_SOURCE ${CLP}.cxx)
+  generateclp(${CLP}_SOURCE ${CLP}.xml)
+  add_executable(${CLP} ${${CLP}_SOURCE})
+  target_link_libraries (${CLP} ${ITK_LIBRARIES} ${DCMTK_LIBRARIES} oflog ${ZLIB_LIBRARIES})
+  set(${CLP}EXE ${DicomToNrrdConverter_BINARY_DIR}/ExtendedTesting/${CLP})
+endforeach()
 
 set (CLP DicomToNrrdConverter)
 add_executable(${CLP}Test ${CLP}Test.cxx)
@@ -65,6 +66,20 @@ midas_add_test(NAME DicomToNrrdConverterGeSignaHdxTest COMMAND ${CMAKE_COMMAND}
         -D TEST_BASELINE=MIDAS{GeSignaHDx.nrrd.md5}
         -D TEST_INPUT=MIDAS_TGZ{GeSignaHDx.tar.gz.md5}
         -D TEST_TEMP_OUTPUT=${TEMP}/GeSignaHDxTest.nrrd
+        -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
+        )
+
+midas_add_test(NAME DicomToNrrdConverterGeSignaHdxFSLTest COMMAND ${CMAKE_COMMAND}
+        -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
+        -D TEST_COMPARE_PROGRAM=${DWISimpleCompareEXE}
+        -D TEST_BASELINE=MIDAS{GeSignaHDx.nii.gz.md5}
+        -D TEST_BASELINE_BVEC=MIDAS{GeSignaHDx.bvec.md5}
+        -D TEST_BASELINE_BVAL=MIDAS{GeSignaHDx.bval.md5}
+        -D TEST_INPUT=MIDAS_TGZ{GeSignaHDx.tar.gz.md5}
+        -D TEST_TEMP_OUTPUT=${TEMP}/GeSignaHDxTest.nii.gz
+        -D TEST_FSL_FLAG=ON
+        -D TEST_TEMP_BVEC=${TEMP}/GeSignaHDxTest.bvec
+        -D TEST_TEMP_BVAL=${TEMP}/GeSignaHDxTest.bval
         -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
         )
 
