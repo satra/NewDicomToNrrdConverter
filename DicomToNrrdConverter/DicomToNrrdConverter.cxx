@@ -282,12 +282,78 @@ typedef itk::Image< PixelValueType, 3 > VolumeType;
 /** write a scalar short image
  */
 int
-WriteVolume( VolumeType::Pointer img, const std::string fname )
+WriteVolume( const VolumeType *img, const std::string &fname )
 {
   itk::ImageFileWriter< VolumeType >::Pointer imgWriter =
     itk::ImageFileWriter< VolumeType >::New();
 
   imgWriter->SetInput( img );
+  imgWriter->SetFileName( fname.c_str() );
+  try
+    {
+    imgWriter->Update();
+    }
+  catch (itk::ExceptionObject &excp)
+    {
+    std::cerr << "Exception thrown while writing "
+              << fname << std::endl;
+    std::cerr << excp << std::endl;
+    return EXIT_FAILURE;
+    }
+  return EXIT_SUCCESS;
+}
+
+int
+Write4DVolume( VolumeType::Pointer &img, int nVolumes, const std::string &fname )
+{
+  typedef itk::Image<PixelValueType,4> Volume4DType;
+
+  VolumeType::SizeType size3D(img->GetLargestPossibleRegion().GetSize());
+  VolumeType::DirectionType direction3D(img->GetDirection());
+  VolumeType::SpacingType spacing3D(img->GetSpacing());
+  VolumeType::PointType origin3D(img->GetOrigin());
+
+  Volume4DType::SizeType size4D;
+  size4D[0] = size3D[0];
+  size4D[1] = size3D[1];
+  size4D[2] = size3D[2] / nVolumes;
+  size4D[3] = nVolumes;
+
+  Volume4DType::DirectionType direction4D;
+  Volume4DType::SpacingType spacing4D;
+  Volume4DType::PointType origin4D;
+
+  for(unsigned i = 0; i < 3; ++i)
+    {
+    for(unsigned j = 0; j < 3; ++j)
+      {
+      direction4D[i][j] = direction3D[i][j];
+      }
+    direction4D[3][i] = 0.0;
+    direction4D[i][3] = 0.0;
+    spacing4D[i] = spacing3D[i];
+    origin4D[i] = origin3D[i];
+    }
+  direction4D[3][3] = 1.0;
+  spacing4D[3] = 1.0;
+  origin4D[3] = 0.0;
+
+
+  Volume4DType::Pointer img4D = Volume4DType::New();
+  img4D->SetRegions(size4D);
+  img4D->SetDirection(direction4D);
+  img4D->SetSpacing(spacing4D);
+  img4D->SetOrigin(origin4D);
+
+  img4D->Allocate();
+  memcpy(img4D->GetBufferPointer(),
+         img->GetBufferPointer(),
+         img->GetLargestPossibleRegion().GetNumberOfPixels() * sizeof(PixelValueType));
+
+  itk::ImageFileWriter< Volume4DType >::Pointer imgWriter =
+    itk::ImageFileWriter< Volume4DType >::New();
+
+  imgWriter->SetInput( img4D );
   imgWriter->SetFileName( fname.c_str() );
   try
     {
@@ -1652,7 +1718,7 @@ int main(int argc, char *argv[])
       }
     else
       {
-      if(WriteVolume(dmImage,outputVolumeHeaderName) != EXIT_SUCCESS)
+      if(Write4DVolume(dmImage,nUsableVolumes,outputVolumeHeaderName) != EXIT_SUCCESS)
         {
         FreeHeaders(allHeaders);
         return EXIT_FAILURE;
@@ -1888,19 +1954,12 @@ int main(int argc, char *argv[])
         }
       // write data in the same file is .nrrd was chosen
       header << std::endl;;
-      if (nrrdFormat && SliceMosaic)
+      if (nrrdFormat)
         {
         unsigned long nVoxels = dmImage->GetBufferedRegion().GetNumberOfPixels();
         header.write( reinterpret_cast<char *>(dmImage->GetBufferPointer()),
                       nVoxels*sizeof(short) );
         }
-      else if (nrrdFormat)
-        {
-        unsigned long nVoxels = reader->GetOutput()->GetBufferedRegion().GetNumberOfPixels();
-        header.write( reinterpret_cast<char *>(reader->GetOutput()->GetBufferPointer()),
-                      nVoxels*sizeof(short) );
-        }
-
       header.close();
       }
     else

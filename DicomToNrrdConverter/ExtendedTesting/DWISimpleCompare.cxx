@@ -37,6 +37,10 @@ int DoIt( int argc, char * argv[], PixelType )
   firstReader->SetFileName( inputVolume1.c_str() );
   secondReader->SetFileName( inputVolume2.c_str() );
 
+  firstReader->Update(); secondReader->Update();
+  typename ImageType::Pointer firstImage = firstReader->GetOutput();
+  typename ImageType::Pointer secondImage = secondReader->GetOutput();
+
   typedef itk::SubtractImageFilter<ImageType> SubtractFilterType;
   typename SubtractFilterType::Pointer subtractFilter =
     SubtractFilterType::New();
