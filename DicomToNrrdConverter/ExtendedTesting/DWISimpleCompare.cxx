@@ -24,10 +24,9 @@ namespace
 #define DIMENSION 4
 
 template <class PixelType>
-int DoIt( int argc, char * argv[], PixelType )
+int DoIt( const std::string &inputVolume1, const std::string &inputVolume2, PixelType )
 {
 
-  PARSE_ARGS;
   typedef itk::Image<PixelType,DIMENSION> ImageType;
   typedef itk::ImageFileReader<ImageType> FileReaderType;
 
@@ -104,31 +103,31 @@ int main( int argc, char * argv[] )
     switch( componentType )
       {
       case itk::ImageIOBase::UCHAR:
-        return DoIt( argc, argv, static_cast<unsigned char>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<unsigned char>(0) );
         break;
       case itk::ImageIOBase::CHAR:
-        return DoIt( argc, argv, static_cast<char>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<char>(0) );
         break;
       case itk::ImageIOBase::USHORT:
-        return DoIt( argc, argv, static_cast<unsigned short>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<unsigned short>(0) );
         break;
       case itk::ImageIOBase::SHORT:
-        return DoIt( argc, argv, static_cast<short>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<short>(0) );
         break;
       case itk::ImageIOBase::UINT:
-        return DoIt( argc, argv, static_cast<unsigned int>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<unsigned int>(0) );
         break;
       case itk::ImageIOBase::INT:
-        return DoIt( argc, argv, static_cast<int>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<int>(0) );
         break;
       case itk::ImageIOBase::ULONG:
-        return DoIt( argc, argv, static_cast<unsigned long>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<unsigned long>(0) );
         break;
       case itk::ImageIOBase::LONG:
-        return DoIt( argc, argv, static_cast<long>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<long>(0) );
         break;
       case itk::ImageIOBase::FLOAT:
-        return DoIt( argc, argv, static_cast<float>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<float>(0) );
         // std::cout << "FLOAT type not currently supported." << std::endl;
         break;
       case itk::ImageIOBase::DOUBLE:

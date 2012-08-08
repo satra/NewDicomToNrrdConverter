@@ -1,16 +1,18 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <sstream>
 #include "itkImage.h"
 #include "itkImageFileReader.h"
 #include "itkImageFileWriter.h"
+#include "itkMetaDataObject.h"
 #include "FSLToNrrdCLP.h"
 
 typedef short PixelValueType;
-typedef itk::Image< PixelValueType, 3 > VolumeType;
-typedef itk::Image< PixelValueTYpe, 4 > DWIVolumeType;
+typedef itk::Image< PixelValueType, 4 > VolumeType;
+
 template <typename TArg>
-void
+int
 CheckArg(const char *argName, const TArg &argVal, const TArg &emptyVal)
 {
   if(argVal == emptyVal)
@@ -24,10 +26,10 @@ CheckArg(const char *argName, const TArg &argVal, const TArg &emptyVal)
 /** write a scalar short image
  */
 int
-WriteVolume( DWIVolumeType::Pointer &img, const std::string &fname )
+WriteVolume( VolumeType::Pointer &img, const std::string &fname )
 {
-  itk::ImageFileWriter< DWIVolumeType >::Pointer imgWriter =
-    itk::ImageFileWriter< DWIVolumeType >::New();
+  itk::ImageFileWriter< VolumeType >::Pointer imgWriter =
+    itk::ImageFileWriter< VolumeType >::New();
 
   imgWriter->SetInput( img );
   imgWriter->SetFileName( fname.c_str() );
@@ -68,61 +70,81 @@ ReadVolume( VolumeType::Pointer &img, const std::string &fname )
 }
 
 int
-ReadBVals(std::vector<double> &bVals, int & bValCount, const std::string &bValFilename)
+ReadBVals(std::vector<double> &bVals, int & bValCount, const std::string &bValFilename, double &maxBValue)
 {
-  std::ifstream bValFile(bValFileName,std::ifstream::in);
+  std::ifstream bValFile(bValFilename.c_str(),std::ifstream::in);
   if(!bValFile.good())
     {
-    std::cerr << "Failed to open " << bValFileName
+    std::cerr << "Failed to open " << bValFilename
               << std::endl;
-    bVals.clear();
-    bValCount = 0;
-    while(!bValFile.eof())
-      {
-      double x;
-      bValFile >> x;
-      bVals.push_back(x);
-      }
     return EXIT_FAILURE;
     }
+  bVals.clear();
+  bValCount = 0;
+  while(!bValFile.eof())
+    {
+    double x;
+    bValFile >> x;
+    if(bValFile.fail())
+      {
+      break;
+      }
+    if(x > maxBValue)
+      {
+      maxBValue = x;
+      }
+    bValCount++;
+    bVals.push_back(x);
+    }
+  return EXIT_SUCCESS;
 }
 
 int
-ReadBVals(std::vector< std::vector<double> > &bVecs, int & bVecCount, const std::string &bVecFilename)
+ReadBVecs(std::vector< std::vector<double> > &bVecs, int & bVecCount, const std::string &bVecFilename)
 {
-  std::ifstream bVecFile(bVecFileName,std::ifstream::in);
+  std::ifstream bVecFile(bVecFilename.c_str(),std::ifstream::in);
   if(!bVecFile.good())
     {
-    std::cerr << "Failed to open " << bVecFileName
+    std::cerr << "Failed to open " << bVecFilename
               << std::endl;
-    bVecs.clear();
-    bVecCount = 0;
-    while(!bVecFile.eof())
-      {
-      std::vector<double> x;
-      for(i = 0; i < 3; ++i)
-        {
-        if(bVecFile.eof())
-          {
-          std::cerr << "Malformed B Vector file " << bVecFilename << std::endl;
-          return EXIT_FAILURE;
-          }
-        bValFile >> x[i];
-        }
-      bVecs.push_back(x);
-      }
     return EXIT_FAILURE;
     }
+  bVecs.clear();
+  bVecCount = 0;
+  while(!bVecFile.eof())
+    {
+    std::vector<double> x;
+    for(unsigned i = 0; i < 3; ++i)
+      {
+      double val;
+      bVecFile >> val;
+      if(bVecFile.fail())
+        {
+        break;
+        }
+      x.push_back(val);
+      }
+    if(bVecFile.fail())
+      {
+      break;
+      }
+    bVecCount++;
+    bVecs.push_back(x);
+    }
+  return EXIT_SUCCESS;
 }
 
 int
 main(int argc, char *argv[])
 {
   PARSE_ARGS;
-  CheckArg("Input Volume",inputVolume,"");
-  CheckArg("Output Volume",outputVolume,"");
-  CheckArg("B Values", BValues, "");
-  CheckArg("B Vectors", BVectors, "");
+  if(CheckArg<std::string>("Input Volume",inputVolume,"") == EXIT_FAILURE ||
+     CheckArg<std::string>("Output Volume",outputVolume,"") == EXIT_FAILURE ||
+     CheckArg<std::string>("B Values", BValues, "") == EXIT_FAILURE ||
+     CheckArg<std::string>("B Vectors", BVectors, ""))
+    {
+    return EXIT_FAILURE;
+    }
 
   VolumeType::Pointer inputVol;
   if(ReadVolume(inputVol,inputVolume) != EXIT_SUCCESS)
@@ -132,7 +154,8 @@ main(int argc, char *argv[])
   std::vector<double> BVals;
   std::vector< std::vector<double> > BVecs;
   int bValCount, bVecCount;
-  if(ReadBVals(BVals,bValCount,BValues) != EXIT_SUCCESS)
+  double maxBValue(0.0);
+  if(ReadBVals(BVals,bValCount,BValues,maxBValue) != EXIT_SUCCESS)
     {
     return EXIT_FAILURE;
     }
@@ -147,48 +170,40 @@ main(int argc, char *argv[])
               << bValCount << ")" << std::endl;
     return EXIT_FAILURE;
     }
-  VolumeType::SizeType size3D(inputVol->GetLargetsPossibleRegion().GetSize());
-  VolumeType::DirectionType direction3D(inputVol->GetDirection());
-  VolumeType::SpacingType spacing3D(inputVol->GetSpacing());
-  VolumeType::PointType origin3D(inputVol->GetOrigin());
-
-  DWIVolumeType::SizeType size4D;
-  size4D[0] = size3D[0];
-  size4D[1] = size3D[1];
-  size4D[2] = size3D[2] / bVecCount;
-  size4D[3] = bVecCount;
-
-  DWIVolumeType::DirectionType direction4D;
-  for(unsigned i = 0; i < 3; ++i)
-    for(unsigned j = 0; j < 3; ++j)
-      {
-      direction4D[i][j] = direction3D[i][j];
-      direction4D[3][j] = 0.0;
-      direction4D[j][3] = 0.0;
-      }
-  direction4D[3][3] = 1.0;
-
-  DWIVolumeType::SpacingType spacing4D;
-  DWIVolumeType::PointType origin4D;
-  for(unsigned i = 0; i < 3; ++i)
+  unsigned volumeCount = inputVol->GetLargestPossibleRegion().GetSize()[3];
+  if(volumeCount != bValCount)
     {
-    spacing4D[i] = spacing3D[i];
-    origin4D[i] = origin3D[i];
+    std::cerr << "Mismatch between BVector count ("
+              << bVecCount << ") and image volume count ("
+              << volumeCount << ")" << std::endl;
+    return EXIT_SUCCESS;
     }
-  spacing4D[3] = 1.0;
-  origin4D[3] = 0.0;
+  itk::MetaDataDictionary &dict = inputVol->GetMetaDataDictionary();
 
+  std::string modalityVal("DWMRI");
+  itk::EncapsulateMetaData<std::string>(dict,"modality",modalityVal);
 
-  DWIVolumeType::Pointer nrrdFile = DWIVolumeType::New();
-  nrrdFile->SetRegions(size4D);
-  nrrdFile->SetDirection(direction4D);
-  nrrdFile->SetSpacing(spacing4D);
-  nrrdFile->SetOrigin(origin4D);
+  std::string space_units("\"mm\" \"mm\" \"mm\"");
+  itk::EncapsulateMetaData<std::string>(dict,"space_units",space_units);
 
-  nrrdFile->Allocate();
-  memcpy(nrrdFile->GetBufferPointer(),inputVol->GetBufferPointer(),
-         inputVol->GetNumberOfPixels() * sizeof(PixelValueType));
-
-  return EXIT_SUCCESS;
+  VolumeType::SpacingType spacing = inputVol->GetSpacing();
+  std::stringstream thicknessSS;
+  thicknessSS << spacing[0] << " " << spacing[1] << " "
+              << spacing[2];
+  itk::EncapsulateMetaData<std::string>(dict,"thicknesses",thicknessSS.str());
+  for(unsigned int i = 0; i < bVecCount; ++i)
+    {
+    std::stringstream vec;
+    vec << BVecs[i][0] << "  "
+        << BVecs[i][1] << "  "
+        << BVecs[i][2];
+    std::stringstream label;
+    label << "DWMRI_gradient_" << std::setw(4) << std::setfill('0') << i;
+    itk::EncapsulateMetaData<std::string>(dict,label.str(),vec.str());
+    }
+  std::stringstream maxBValueSS;
+  maxBValueSS << maxBValue;
+  itk::EncapsulateMetaData<std::string>(dict,"DWMRI_b-value", maxBValueSS.str());
+  return WriteVolume(inputVol,outputVolume);
 }
 

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+  <category>Converters</category>
+  <category>.Diffusion Data Conversion</category>
+  <title>FSL to NRRD Converter</title>
+  <description><![CDATA[Convert a FSL DWI dataset (comprising a NIfTI  image file, bval and bvec text files) to a single NRRD file]]></description>
+  <version>0.2.0.$Revision: 916 $(alpha)</version>
+  <documentation-url>http://wiki.slicer.org/slicerWiki/index.php/Documentation/4.1/Modules/DicomToNrrdConverter</documentation-url>  <license>https://www.nitrc.org/svn/brains/BuildScripts/trunk/License.txt</license>
+  <contributor>Xiaodong Tao (GE), Vince Magnotta (UIowa), Hans Johnson (UIowa), Joy Matsui (UIowa), Kent Williams (UIowa) Mark Scully (Uiowa)</contributor>
+  <acknowledgements><![CDATA[This work is part of the National Alliance for Medical Image Computing (NAMIC), funded by the National Institutes of Health through the NIH Roadmap for Medical Research, Grant U54 EB005149.  Additional support for DTI data produced on Philips scanners was contributed by Vincent Magnotta and Hans Johnson at the University of Iowa.]]></acknowledgements>
+  <parameters>
+    <label>IO</label>
+    <description><![CDATA[Input/output parameters]]></description>
+    <image type="diffusion-weighted">
+      <name>inputVolume</name>
+      <longflag>--inputVolume</longflag>
+      <label>Input DWI volume file</label>
+      <channel>input</channel>
+      <description><![CDATA[Input DWI volume]]></description>
+    </image>
+    <image type="diffusion-weighted">
+      <name>outputVolume</name>
+      <longflag>--outputVolume</longflag>
+      <label>Output Filename</label>
+      <channel>output</channel>
+      <description><![CDATA[Output NRRD filename (.nrrd)]]></description>
+    </image>
+    <file>
+      <name>BValues</name>
+      <longflag>--bValues</longflag>
+      <label>B Values File</label>
+      <channel>input</channel>
+      <description><![CDATA[B Values text file]]></description>
+    </file>
+    <file>
+      <name>BVectors</name>
+      <longflag>--bVectors</longflag>
+      <label>B Vector File</label>
+      <channel>input</channel>
+      <description><![CDATA[B Vector text file]]></description>
+    </file>
+  </parameters>
+</executable>

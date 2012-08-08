@@ -30,30 +30,28 @@ find_package(ZLIB REQUIRED)
 include_directories(${DCMTK_INCLUDE_DIRS})
 include_directories(${DCMTK_DIR}/include)
 
-set (CLP DicomToNrrdConverter)
-set ( ${CLP}_SOURCE ${CLP}.cxx)
-
 # SlicerExecutionModel
 find_package(SlicerExecutionModel REQUIRED GenerateCLP)
 include(${GenerateCLP_USE_FILE})
 
 find_package(LIBICONV REQUIRED)
 
-#message("DCMTK_LIBRARIES=${DCMTK_LIBRARIES}")
-#message("LIBICONV_LIBRARIES ${LIBICONV_LIBRARIES} LIB_ICONV_INCLUDE_DIRS ${LIBICONV_INCLUDE_DIRS}")
+foreach(CLP DicomToNrrdConverter FSLToNrrd)
+  set ( ${CLP}_SOURCE ${CLP}.cxx)
 
-generateclp(${CLP}_SOURCE ${CLP}.xml)
+  generateclp(${CLP}_SOURCE ${CLP}.xml)
 
-link_directories(${DCMTK_DIR}/lib)
+  link_directories(${DCMTK_DIR}/lib)
 
-add_executable(${CLP} ${${CLP}_SOURCE})
+  add_executable(${CLP} ${${CLP}_SOURCE})
 
-target_link_libraries (${CLP}
-  ${ITK_LIBRARIES}
-  ${DCMTK_LIBRARIES}
-  ${LIBICONV_LIBRARIES}
-  ${ZLIB_LIBRARIES}
-  )
-set_target_properties(${CLP} PROPERTIES LABELS ${CLP})
+  target_link_libraries (${CLP}
+    ${ITK_LIBRARIES}
+    ${DCMTK_LIBRARIES}
+    ${LIBICONV_LIBRARIES}
+    ${ZLIB_LIBRARIES}
+    )
+  set_target_properties(${CLP} PROPERTIES LABELS ${CLP})
+endforeach()
 
 add_subdirectory(ExtendedTesting)
