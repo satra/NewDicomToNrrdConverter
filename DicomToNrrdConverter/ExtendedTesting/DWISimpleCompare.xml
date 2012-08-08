@@ -25,5 +25,12 @@
       <channel>input</channel>
       <description><![CDATA[Second input volume (.nhdr or .nrrd)]]></description>
     </image>
+    <boolean>
+      <name>CheckDWIData</name>
+      <longflag>--checkDWIData</longflag>
+      <label>Check DWI Data</label>
+      <default>false</default>
+      <description>check for existence of DWI data, and if present, compare it</description>
+    </boolean>
   </parameters>
 </executable>

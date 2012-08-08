@@ -17,14 +17,117 @@
 #include <itkStatisticsImageFilter.h>
 #include <vcl_algorithm.h>
 
-#include "DWICompareCLP.h"
+#include "DWISimpleCompareCLP.h"
 
 namespace
 {
 #define DIMENSION 4
 
 template <class PixelType>
-int DoIt( const std::string &inputVolume1, const std::string &inputVolume2, PixelType )
+std::vector< std::vector<double> >
+RecoverGVector(typename itk::Image<PixelType,DIMENSION>::Pointer &img)
+{
+  std::vector< std::vector<double> > rval;
+
+  itk::MetaDataDictionary &dict = img->GetMetaDataDictionary();
+
+  for(unsigned curGradientVec = 0; ;++curGradientVec)
+    {
+    std::stringstream labelSS;
+    labelSS << "DWMRI_gradient_" << std::setw(4) << std::setfill('0') << curGradientVec;
+    std::string valString;
+    // look for gradients in metadata until none by current name exists
+    if(!itk::ExposeMetaData<std::string>(dict,labelSS.str(),valString))
+      {
+      break;
+      }
+    std::stringstream valSS(valString);
+    std::vector<double> vec;
+    for(;;)
+      {
+      double curVal;
+      valSS >> curVal;
+      if(!valSS.fail())
+        {
+        vec.push_back(curVal);
+        }
+      else
+        {
+        break;
+        }
+      }
+    rval.push_back(vec);
+    }
+  return rval;
+}
+
+template <class PixelType>
+int
+RecoverBValue(typename itk::Image<PixelType,DIMENSION>::Pointer &img, double &val)
+{
+  std::string valString;
+
+  itk::MetaDataDictionary &dict = img->GetMetaDataDictionary();
+
+  if(!itk::ExposeMetaData<std::string>(dict,"DWMRI_b-value",valString))
+    {
+    return EXIT_FAILURE;
+    }
+
+  std::stringstream valSS(valString);
+
+  valSS >> val;
+
+  if(valSS.fail())
+    {
+    return EXIT_FAILURE;
+    }
+
+  return EXIT_SUCCESS;
+}
+
+template <typename TValue>
+bool
+CloseEnough(TValue a, TValue b)
+{
+  double averageMag = (vcl_fabs(static_cast<double>(a)) +
+                       vcl_fabs(static_cast<double>(b))) / 2.0;
+  double diff = vcl_fabs(static_cast<double>(a) - static_cast<double>(b));
+  // case one -- both near zero
+  if(averageMag < 0.000001)
+    return true;
+  // case 2 -- diff > average / 100000;
+  if(diff > (averageMag / 100000.0))
+    {
+    return false;
+    }
+  return true;
+}
+
+template <typename TVal>
+bool
+CloseEnough(const std::vector<TVal> &a, const std::vector<TVal> &b)
+{
+  if(a.size() != b.size())
+    {
+    std::cerr << "Vector size mismatch: "
+              << a.size() << " "
+              << b.size() << std::endl;
+    return false;
+    }
+  for(unsigned i = 0; i < a.size(); ++i)
+    {
+    if(!CloseEnough(a[i],b[i]))
+      {
+      std::cerr << "Value mismatch" << std::endl;
+      return false;
+      }
+    }
+  return true;
+}
+
+template <class PixelType>
+int DoIt( const std::string &inputVolume1, const std::string &inputVolume2, PixelType, bool CheckDWIData )
 {
 
   typedef itk::Image<PixelType,DIMENSION> ImageType;
@@ -66,6 +169,48 @@ int DoIt( const std::string &inputVolume1, const std::string &inputVolume2, Pixe
     {
     return EXIT_FAILURE;
     }
+  if(!CheckDWIData)
+    {
+    return EXIT_SUCCESS;
+    }
+
+  double bVal1, bVal2;
+  if(RecoverBValue<PixelType>(firstImage,bVal1))
+    {
+    std::cerr << "Missing BValue in "
+              << inputVolume1 << std::endl;
+    return EXIT_FAILURE;
+    }
+
+  if(!RecoverBValue<PixelType>(secondImage,bVal2))
+    {
+    std::cerr << "Missing BValue in "
+              << inputVolume2 << std::endl;
+    return EXIT_FAILURE;
+    }
+
+  if(!CloseEnough(bVal1,bVal2))
+    {
+    std::cerr << "BValue mismatch: " << bVal1
+              << " " << bVal2 << std::endl;
+    return EXIT_FAILURE;
+    }
+
+  std::vector< std::vector<double> > firstGVector(RecoverGVector<PixelType>(firstImage)),
+    secondGVector(RecoverGVector<PixelType>(secondImage));
+  if(firstGVector.size() != secondGVector.size())
+    {
+    std::cerr << "First image Gradient Vectors size ("
+              << firstGVector.size()
+              << ") doesn't match second image Gradient vectors size ("
+              << secondGVector.size() << ")" << std::endl;
+    return EXIT_FAILURE;
+    }
+  if(!CloseEnough(firstGVector,secondGVector))
+    {
+    std::cerr << "Gradient vectors don't match" << std::endl;
+    return EXIT_FAILURE;
+    }
   return EXIT_SUCCESS;
 }
 
@@ -103,31 +248,31 @@ int main( int argc, char * argv[] )
     switch( componentType )
       {
       case itk::ImageIOBase::UCHAR:
-        return DoIt( inputVolume1, inputVolume2, static_cast<unsigned char>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<unsigned char>(0),CheckDWIData );
         break;
       case itk::ImageIOBase::CHAR:
-        return DoIt( inputVolume1, inputVolume2, static_cast<char>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<char>(0),CheckDWIData );
         break;
       case itk::ImageIOBase::USHORT:
-        return DoIt( inputVolume1, inputVolume2, static_cast<unsigned short>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<unsigned short>(0),CheckDWIData );
         break;
       case itk::ImageIOBase::SHORT:
-        return DoIt( inputVolume1, inputVolume2, static_cast<short>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<short>(0),CheckDWIData );
         break;
       case itk::ImageIOBase::UINT:
-        return DoIt( inputVolume1, inputVolume2, static_cast<unsigned int>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<unsigned int>(0),CheckDWIData );
         break;
       case itk::ImageIOBase::INT:
-        return DoIt( inputVolume1, inputVolume2, static_cast<int>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<int>(0),CheckDWIData );
         break;
       case itk::ImageIOBase::ULONG:
-        return DoIt( inputVolume1, inputVolume2, static_cast<unsigned long>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<unsigned long>(0),CheckDWIData );
         break;
       case itk::ImageIOBase::LONG:
-        return DoIt( inputVolume1, inputVolume2, static_cast<long>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<long>(0),CheckDWIData );
         break;
       case itk::ImageIOBase::FLOAT:
-        return DoIt( inputVolume1, inputVolume2, static_cast<float>(0) );
+        return DoIt( inputVolume1, inputVolume2, static_cast<float>(0),CheckDWIData );
         // std::cout << "FLOAT type not currently supported." << std::endl;
         break;
       case itk::ImageIOBase::DOUBLE:
