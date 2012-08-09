@@ -1860,7 +1860,9 @@ int main(int argc, char *argv[])
       header << "encoding: raw" << std::endl;
       header << "space units: \"mm\" \"mm\" \"mm\"" << std::endl;
       header << "space origin: "
-             <<"(" << ImageOrigin[0] << ","<< ImageOrigin[1] << ","<< ImageOrigin[2] << ") " << std::endl;
+             <<"(" << std::setprecision(7) << ImageOrigin[0]
+             << ","<< std::setprecision(7) << ImageOrigin[1]
+             << ","<< std::setprecision(7) << ImageOrigin[2] << ") " << std::endl;
       if (!nrrdFormat)
         {
         header << "data file: " << itksys::SystemTools::GetFilenameName(outputVolumeDataName) << std::endl;

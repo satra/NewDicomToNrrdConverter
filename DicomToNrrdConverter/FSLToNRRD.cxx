@@ -179,6 +179,8 @@ main(int argc, char *argv[])
     return EXIT_SUCCESS;
     }
   itk::MetaDataDictionary &dict = inputVol->GetMetaDataDictionary();
+  std::string spaceVal("left-posterior-superior");
+  itk::EncapsulateMetaData<std::string>(dict,"space",spaceVal);
 
   std::string modalityVal("DWMRI");
   itk::EncapsulateMetaData<std::string>(dict,"modality",modalityVal);

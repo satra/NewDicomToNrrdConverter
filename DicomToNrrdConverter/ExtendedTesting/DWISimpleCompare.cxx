@@ -142,6 +142,35 @@ int DoIt( const std::string &inputVolume1, const std::string &inputVolume2, Pixe
   firstReader->Update(); secondReader->Update();
   typename ImageType::Pointer firstImage = firstReader->GetOutput();
   typename ImageType::Pointer secondImage = secondReader->GetOutput();
+  //
+  // check origin -- problem with file conversion causing some drift
+  typename ImageType::PointType firstOrigin(firstImage->GetOrigin());
+  typename ImageType::PointType secondOrigin(secondImage->GetOrigin());
+  double distance =
+    vcl_sqrt(firstOrigin.SquaredEuclideanDistanceTo(secondOrigin));
+  if(distance > 1.0E-3)
+    {
+    std::cerr << "Origins differ " << firstOrigin
+              << " " << secondOrigin << std::endl;
+    return EXIT_FAILURE;
+    }
+  else if(distance > 1.0E-6)
+    {
+    // if there is a small difference make them the same
+    firstImage->SetOrigin(secondOrigin);
+    }
+  // same deal with spacing, can be slightly off due to numerical error
+  typename ImageType::SpacingType firstSpacing(firstImage->GetSpacing());
+  typename ImageType::SpacingType secondSpacing(secondImage->GetSpacing());
+  for(unsigned int i = 0; i < ImageType::GetImageDimension(); ++i)
+    {
+    double diff = vcl_fabs(firstSpacing[i] - secondSpacing[i]);
+    if(diff > 1.0e-6 && diff < 1.0e-4)
+      {
+      firstSpacing[i] = secondSpacing[i];
+      }
+    }
+  firstImage->SetSpacing(firstSpacing);
 
   typedef itk::SubtractImageFilter<ImageType> SubtractFilterType;
   typename SubtractFilterType::Pointer subtractFilter =
