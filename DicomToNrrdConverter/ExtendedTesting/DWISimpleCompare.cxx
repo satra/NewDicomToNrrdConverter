@@ -171,7 +171,6 @@ int DoIt( const std::string &inputVolume1, const std::string &inputVolume2, Pixe
       }
     }
   firstImage->SetSpacing(firstSpacing);
-
   typedef itk::SubtractImageFilter<ImageType> SubtractFilterType;
   typename SubtractFilterType::Pointer subtractFilter =
     SubtractFilterType::New();
@@ -253,6 +252,7 @@ void GetImageType(std::string fileName,
   imageReader->SetFileName(fileName.c_str() );
   imageReader->UpdateOutputInformation();
 
+  unsigned int componentNum = imageReader->GetImageIO()->GetNumberOfComponents();
   pixelType = imageReader->GetImageIO()->GetPixelType();
   componentType = imageReader->GetImageIO()->GetComponentType();
 }
@@ -271,7 +271,8 @@ int main( int argc, char * argv[] )
     {
     // itk::GetImageType (inputVolume1, pixelType, componentType);
     GetImageType(inputVolume1, pixelType, componentType);
-
+    GetImageType(inputVolume2, pixelType, componentType);
+    
     // This filter handles all types
 
     switch( componentType )

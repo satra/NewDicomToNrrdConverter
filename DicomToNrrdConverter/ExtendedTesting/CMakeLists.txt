@@ -83,6 +83,21 @@ midas_add_test(NAME DicomToNrrdConverterGeSignaHdxFSLTest COMMAND ${CMAKE_COMMAN
         -P ${CMAKE_SOURCE_DIR}/ExtendedTesting/DicomToNrrdDWICompareTest.cmake
         )
 
+add_test(NAME FSLToNrrdTest
+  COMMAND ${CMAKE_COMMAND}
+  -DVEC_FILE=${TEMP}/GeSignaHDxTest.bvec
+  -DVAL_FILE=${TEMP}/GeSignaHDxTest.bval
+  -DNII_FILE=${TEMP}/GeSignaHDxTest.nii.gz
+  -DNRRD_FILE=${TEMP}/FSLToNrrdTest.nrrd
+  -DNRRD_COMPARE_FILE=${TEMP}/GeSignaHDxTest.nrrd
+  -DFSL_TO_NRRD=${DicomToNrrdConverter_BINARY_DIR}/FSLToNrrd
+  -D TEST_COMPARE_PROGRAM=${DWICompareEXE}
+  -P ${CMAKE_CURRENT_LIST_DIR}/FSLToNrrdTest.cmake
+)
+
+set_property(TEST FSLToNrrdTest 
+  APPEND PROPERTY DEPENDS DicomToNrrdConverterGeSignaHdxFSLTest)
+
 midas_add_test(NAME DicomToNrrdConverterGeSignaHdxBigEndianTest COMMAND ${CMAKE_COMMAND}
   ${CMAKE_COMMAND} -D TEST_PROGRAM=${DicomToNrrdConverterEXE}
                    -D TEST_COMPARE_PROGRAM=${DWICompareEXE}

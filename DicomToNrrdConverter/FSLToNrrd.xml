@@ -39,5 +39,12 @@
       <channel>input</channel>
       <description><![CDATA[B Vector text file]]></description>
     </file>
+    <boolean>
+      <name>useIdentityMeaseurementFrame</name>
+      <longflag>--useIdentityMeaseurementFrame</longflag>
+      <label>Use Identity Measurement Frame</label>
+      <description><![CDATA[Adjust all the gradients so that the measurement frame is an identity matrix.]]></description>
+      <default>false</default>
+    </boolean>
   </parameters>
 </executable>
