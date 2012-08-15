@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 project(DICOM2NRRD)
 
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/DicomToNrrdConverter ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/DWIConvert ${CMAKE_MODULE_PATH})
 
 include(ExternalProject)
 
@@ -140,7 +140,7 @@ ExternalProject_add(dcmtk
   GIT_TAG 12690c81c05fbb0ec7087522bdc48dfea8aa528a
   UPDATE_COMMAND ""
   PATCH_COMMAND ${CMAKE_COMMAND} -E
-  copy ${CMAKE_CURRENT_LIST_DIR}/DicomToNrrdConverter/FindLIBICONV.cmake
+  copy ${CMAKE_CURRENT_LIST_DIR}/DWIConvert/FindLIBICONV.cmake
   ${CMAKE_CURRENT_BINARY_DIR}/dcmtk/CMake/FindICONV.cmake
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${PREREQS}
   ${COMMON_CMAKE_FLAGS}
@@ -168,14 +168,14 @@ ExternalProject_Add_Step(dcmtk fixGenerateConfig
   -P ${dcmtkPatchScript}
 )
 
-set(proj DicomToNrrdConverter)
+set(proj DWIConvert)
 
-ExternalProject_add(DicomToNrrdConverter
+ExternalProject_add(DWIConvert
   DEPENDS dcmtk SlicerExecutionModel ITK ${ICONV_DEP}
   DOWNLOAD_COMMAND ""
   INSTALL_COMMAND  ""
-  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/DicomToNrrdConverter
-  BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/DicomToNrrdConverter-build
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/DWIConvert
+  BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/DWIConvert-build
   CMAKE_ARGS
   -DRUN_EXTENDED_LOCAL_TESTING:BOOL=ON
   -DITK_DIR:PATH=${ITK_DIR}

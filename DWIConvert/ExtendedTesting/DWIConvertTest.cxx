@@ -1,7 +1,7 @@
 
 #include <iostream>
 #include "itkTestMain.h"
-// #include "DicomToNrrdConverter.cxx"
+// #include "DWIConvert.cxx"
 
 /*
 extern "C" MODULE_IMPORT int ModuleEntryPoint(int, char* []);
@@ -14,9 +14,9 @@ void RegisterTests()
 
 void RegisterTests()
 {
-  REGISTER_TEST(DicomToNrrdConverterTest);
+  REGISTER_TEST(DWIConvertTest);
 }
 
 #undef main
-#define main DicomToNrrdConverterTest
-#include "../DicomToNrrdConverter.cxx"
+#define main DWIConvertTest
+#include "../DWIConvert.cxx"

@@ -1,8 +1,10 @@
 #
 # first reconstruct a nrrd file from the generated FSL files
 set(command_line
-  ${FSL_TO_NRRD} --bVectors ${VEC_FILE}
-  --bValues ${VAL_FILE}
+  ${FSL_TO_NRRD}
+  --conversionMode FSLToNrrd
+  --inputBVectors ${VEC_FILE}
+  --inputBValues ${VAL_FILE}
   --inputVolume ${NII_FILE}
   --outputVolume ${NRRD_FILE}
 )

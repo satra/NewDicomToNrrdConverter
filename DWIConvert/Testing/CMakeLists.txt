@@ -7,12 +7,12 @@ include_regular_expression("^.*$")
 find_package(SlicerExecutionModel REQUIRED GenerateCLP)
 include(${GenerateCLP_USE_FILE})
 
-include_directories(${DicomToNrrdConverter_SOURCE_DIR})
-include_directories(${DicomToNrrdConverter_BINARY_DIR})
+include_directories(${DWIConvert_SOURCE_DIR})
+include_directories(${DWIConvert_BINARY_DIR})
 #include_directories(${ModuleDescriptionParser_SOURCE_DIR})
 #include_directories (${TCLAP_SOURCE_DIR}/include)
 
-set (CLP DicomToNrrdConverter)
+set (CLP DWIConvert)
 add_executable(${CLP}Test ${CLP}Test.cxx)
 add_dependencies(${CLP}Test ${CLP})
 
@@ -27,7 +27,7 @@ set_target_properties(${CLP}Test PROPERTIES LABELS ${CLP})
 set(TEST_DATA "${Slicer_SOURCE_DIR}/Testing/Data/Input")
 set(TEMP "${Slicer_BINARY_DIR}/Testing/Temporary")
 
-# DicomToNrrdConverter tests
+# DWIConvert tests
 add_test(
     NAME ${CLP}Test
     COMMAND ${Slicer_LAUNCH_COMMAND} $<TARGET_FILE:${CLP}Test>

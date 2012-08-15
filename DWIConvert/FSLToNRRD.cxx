@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <fstream>
 #include <sstream>
@@ -7,7 +8,6 @@
 #include "itkImageFileReader.h"
 #include "itkImageFileWriter.h"
 #include "itkMetaDataObject.h"
-#include "FSLToNrrdCLP.h"
 
 typedef short PixelValueType;
 typedef itk::Image< PixelValueType, 4 > VolumeType;
@@ -137,13 +137,15 @@ ReadBVecs(std::vector< std::vector<double> > &bVecs, int & bVecCount, const std:
 }
 
 int
-main(int argc, char *argv[])
+FSLToNrrd(const std::string &inputVolume,
+          const std::string &outputVolume,
+          const std::string &inputBValues,
+          const std::string &inputBVectors)
 {
-  PARSE_ARGS;
   if(CheckArg<std::string>("Input Volume",inputVolume,"") == EXIT_FAILURE ||
      CheckArg<std::string>("Output Volume",outputVolume,"") == EXIT_FAILURE ||
-     CheckArg<std::string>("B Values", BValues, "") == EXIT_FAILURE ||
-     CheckArg<std::string>("B Vectors", BVectors, ""))
+     CheckArg<std::string>("B Values", inputBValues, "") == EXIT_FAILURE ||
+     CheckArg<std::string>("B Vectors", inputBVectors, ""))
     {
     return EXIT_FAILURE;
     }
@@ -157,11 +159,11 @@ main(int argc, char *argv[])
   std::vector< std::vector<double> > BVecs;
   int bValCount, bVecCount;
   double maxBValue(0.0);
-  if(ReadBVals(BVals,bValCount,BValues,maxBValue) != EXIT_SUCCESS)
+  if(ReadBVals(BVals,bValCount,inputBValues,maxBValue) != EXIT_SUCCESS)
     {
     return EXIT_FAILURE;
     }
-  if(ReadBVecs(BVecs,bVecCount,BVectors) != EXIT_SUCCESS)
+  if(ReadBVecs(BVecs,bVecCount,inputBVectors) != EXIT_SUCCESS)
     {
     return EXIT_FAILURE;
     }
@@ -299,9 +301,9 @@ main(int argc, char *argv[])
   header << "encoding: raw" << std::endl;
   header << "space units: \"mm\" \"mm\" \"mm\"" << std::endl;
   header << "space origin: "
-         <<"(" << std::setprecision(7) << inputOrigin[0]
-         << ","<< std::setprecision(7) << inputOrigin[1]
-         << ","<< std::setprecision(7) << inputOrigin[2] << ") " << std::endl;
+         <<"(" << inputOrigin[0]
+         << ","<< inputOrigin[1]
+         << ","<< inputOrigin[2] << ") " << std::endl;
   header << "measurement frame: "
          << "(" << 1 << ","<< 0 << ","<< 0 << ") "
          << "(" << 0 << ","<< 1 << ","<< 0 << ") "

@@ -1,4 +1,4 @@
-project (DicomToNrrdConverter)
+project (DWIConvert)
 
 #-----------------------------------------------------------------------------
 cmake_minimum_required(VERSION 2.8.0)
@@ -36,22 +36,21 @@ include(${GenerateCLP_USE_FILE})
 
 find_package(LIBICONV REQUIRED)
 
-foreach(CLP DicomToNrrdConverter FSLToNrrd)
-  set ( ${CLP}_SOURCE ${CLP}.cxx)
+set(CLP DWIConvert)
+set ( ${CLP}_SOURCE ${CLP}.cxx FSLToNRRD.cxx)
 
-  generateclp(${CLP}_SOURCE ${CLP}.xml)
+generateclp(${CLP}_SOURCE ${CLP}.xml)
 
-  link_directories(${DCMTK_DIR}/lib)
+link_directories(${DCMTK_DIR}/lib)
 
-  add_executable(${CLP} ${${CLP}_SOURCE})
+add_executable(${CLP} ${${CLP}_SOURCE})
 
-  target_link_libraries (${CLP}
-    ${ITK_LIBRARIES}
-    ${DCMTK_LIBRARIES}
-    ${LIBICONV_LIBRARIES}
-    ${ZLIB_LIBRARIES}
-    )
-  set_target_properties(${CLP} PROPERTIES LABELS ${CLP})
-endforeach()
+target_link_libraries (${CLP}
+  ${ITK_LIBRARIES}
+  ${DCMTK_LIBRARIES}
+  ${LIBICONV_LIBRARIES}
+  ${ZLIB_LIBRARIES}
+  )
+set_target_properties(${CLP} PROPERTIES LABELS ${CLP})
 
 add_subdirectory(ExtendedTesting)

@@ -37,7 +37,9 @@ set(Test_Command_Line
   ${TEST_PROGRAM} --inputDicomDirectory ${TEST_INPUT} --outputVolume ${TEST_TEMP_OUTPUT} ${TEST_PROGRAM_ARGS}
   )
 if(TEST_FSL_FLAG)
-  list(INSERT Test_Command_Line 1 --FSLOutput)
+  list(INSERT Test_Command_Line 1 --conversionMode)
+  list(INSERT Test_Command_Line 2 DicomToFSL)
+
 endif()
 
 message("Test_Command_Line=${Test_Command_Line}")

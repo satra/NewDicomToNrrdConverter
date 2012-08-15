@@ -5,13 +5,45 @@
   <title>DICOM to NRRD Converter</title>
   <description><![CDATA[Converts diffusion weighted MR images in dicom series into Nrrd format for analysis in Slicer. This program has been tested on only a limited subset of DTI dicom formats available from Siemens, GE, and Phillips scanners. Work in progress to support dicom multi-frame data. The program parses dicom header to extract necessary information about measurement frame, diffusion weighting directions, b-values, etc, and write out a nrrd image. For non-diffusion weighted dicom images, it loads in an entire dicom series and writes out a single dicom volume in a .nhdr/.raw pair.]]></description>
   <version>0.2.0.$Revision: 916 $(alpha)</version>
-  <documentation-url>http://wiki.slicer.org/slicerWiki/index.php/Documentation/4.1/Modules/DicomToNrrdConverter</documentation-url>
+  <documentation-url>http://wiki.slicer.org/slicerWiki/index.php/Documentation/4.1/Modules/DWIConverter</documentation-url>
   <license>https://www.nitrc.org/svn/brains/BuildScripts/trunk/License.txt</license>
   <contributor>Xiaodong Tao (GE), Vince Magnotta (UIowa), Hans Johnson (UIowa), Joy Matsui (UIowa), Kent Williams (UIowa) Mark Scully (Uiowa)</contributor>
   <acknowledgements><![CDATA[This work is part of the National Alliance for Medical Image Computing (NAMIC), funded by the National Institutes of Health through the NIH Roadmap for Medical Research, Grant U54 EB005149.  Additional support for DTI data produced on Philips scanners was contributed by Vincent Magnotta and Hans Johnson at the University of Iowa.]]></acknowledgements>
+
+
   <parameters>
-    <label>IO</label>
-    <description><![CDATA[Input/output parameters]]></description>
+    <label>Common Parameters</label>
+    <description><![CDATA[Parameters used in all modes]]></description>
+    <string-enumeration>
+      <name>conversionMode</name>
+      <longflag>--conversionMode</longflag>
+      <description>Determine which conversion to performn</description>
+      <default>DicomToNrrd</default>
+      <element>DicomToNrrd</element>
+      <element>DicomToFSL</element>
+      <element>NrrdToFSL</element>
+      <element>FSLToNrrd</element>
+    </string-enumeration>
+    <image type="diffusion-weighted">
+      <name>inputVolume</name>
+      <longflag>--inputVolume</longflag>
+      <label>Input DWI volume file</label>
+      <channel>input</channel>
+      <description><![CDATA[Input DWI volume -- not used for DicomToNrrd.]]>
+      </description>
+    </image>
+    <image type="diffusion-weighted">
+      <name>outputVolume</name>
+      <longflag>--outputVolume</longflag>
+      <label>Output Filename</label>
+      <channel>output</channel>
+      <description><![CDATA[Output filename (.nhdr or .nrrd)]]></description>
+    </image>
+  </parameters>
+
+  <parameters>
+    <label>DicomToNrrd Parameters</label>
+    <description><![CDATA[Parameters for Dicom to NRRD Conversion]]></description>
     <directory>
       <name>inputDicomDirectory</name>
       <longflag>--inputDicomDirectory</longflag>
@@ -34,18 +66,11 @@
       <channel>output</channel>
       <description><![CDATA[Text file giving gradient vectors]]></description>
     </file>
-    <image type="diffusion-weighted">
-      <name>outputVolume</name>
-      <longflag>--outputVolume</longflag>
-      <label>Output Filename</label>
-      <channel>output</channel>
-      <description><![CDATA[Output filename (.nhdr or .nrrd)]]></description>
-    </image>
     <double>
       <name>smallGradientThreshold</name>
       <longflag>--smallGradientThreshold</longflag>
       <label>Small Gradient Threshold</label>
-      <description><![CDATA[If a gradient magnitude is greater than 0 and less than smallGradientThreshold, then DicomToNrrdConverter will display an error message and quit, unless the useBMatrixGradientDirections option is set.]]></description>
+      <description><![CDATA[If a gradient magnitude is greater than 0 and less than smallGradientThreshold, then DWIConvert will display an error message and quit, unless the useBMatrixGradientDirections option is set.]]></description>
       <default>0.2</default>
     </double>
   </parameters>
@@ -73,12 +98,41 @@
       <description><![CDATA[Fill the nhdr header with the gradient directions and bvalues computed out of the BMatrix. Only changes behavior for Siemens data.]]></description>
       <default>false</default>
     </boolean>
-    <boolean>
-      <name>FSLOutput</name>
-      <longflag>--FSLOutput</longflag>
-      <label>Generate FSL-Compatible Output</label>
-      <description><![CDATA[write Diffusion data out as a 4D NIfTI file + a bval file and bvec file]]></description>
-      <default>false</default>
-    </boolean>
+  </parameters>
+  <parameters>
+    <label>FSLToNrrd Parameters</label>
+    <description><![CDATA[FSLToNrrd Parameters]]></description>
+    <file>
+      <name>inputBValues</name>
+      <longflag>--inputBValues</longflag>
+      <label>B Values File</label>
+      <channel>input</channel>
+      <description><![CDATA[B Values text file]]></description>
+    </file>
+    <file>
+      <name>inputBVectors</name>
+      <longflag>--inputBVectors</longflag>
+      <label>B Vector File</label>
+      <channel>input</channel>
+      <description><![CDATA[B Vector text file]]></description>
+    </file>
+  </parameters>
+  <parameters>
+    <label>NrrdToFSL Parameters</label>
+    <description><![CDATA[NrrdToFSL Parameters]]></description>
+    <file>
+      <name>outputBValues</name>
+      <longflag>--outputBValues</longflag>
+      <label>B Values File</label>
+      <channel>output</channel>
+      <description><![CDATA[B Values text file]]></description>
+    </file>
+    <file>
+      <name>outputBVectors</name>
+      <longflag>--outputbVectors</longflag>
+      <label>B Vector File</label>
+      <channel>output</channel>
+      <description><![CDATA[B Vector text file]]></description>
+    </file>
   </parameters>
 </executable>

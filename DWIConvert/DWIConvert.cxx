@@ -1,11 +1,4 @@
 /*=========================================================================
-
-Module:    $RCSfile: DicomToNrrdConverter.cxx,v $
-Language:  C++
-Date:      $Date: 2007/01/03 02:06:07 $
-Version:   $Revision: 1.2 $
-
-This work is part of the National Alliance for Medical Image
 Computing (NAMIC), funded by the National Institutes of Health
 through the NIH Roadmap for Medical Research, Grant U54 EB005149.
 
@@ -32,7 +25,7 @@ DICOM Data Dictionary: http://medical.nema.org/Dicom/2011/11_06pu.pdf
 #include <sstream>
 #include <algorithm>
 #include <ctype.h>
-#include "DicomToNrrdConverterCLP.h"
+#include "DWIConvertCLP.h"
 
 #include "itkMacro.h"
 #include "itkIntTypes.h"
@@ -372,6 +365,18 @@ Write4DVolume( VolumeType::Pointer &img, int nVolumes, const std::string &fname 
 int main(int argc, char *argv[])
 {
   PARSE_ARGS;
+
+  if(conversionMode == "FSLToNrrd")
+    {
+    extern int FSLToNrrd(const std::string &inputVolume,
+                         const std::string &outputVolume,
+                         const std::string &inputBValues,
+                         const std::string &inputBVectors);
+
+    return FSLToNrrd(inputVolume, outputVolume,
+                     inputBValues, inputBVectors);
+    }
+
   // needed for lossless JPeg, otherwise
   //
   DJDecoderRegistration::registerCodecs();
@@ -412,7 +417,7 @@ int main(int argc, char *argv[])
   std::string outputVolumeDataName;
   std::string outputFSLBValFilename;
   std::string outputFSLBVecFilename;
-  if(!FSLOutput)
+  if(conversionMode != "DicomToFSL")
     {
     const size_t extensionPos = outputVolumeHeaderName.find(".nhdr");
     if(extensionPos != std::string::npos)
@@ -440,10 +445,24 @@ int main(int argc, char *argv[])
           exit(1);
           }
         }
-      outputFSLBValFilename = outputVolumeHeaderName.substr(0,extensionPos);
-      outputFSLBValFilename += ".bval";
-      outputFSLBVecFilename = outputVolumeHeaderName.substr(0,extensionPos);
-      outputFSLBVecFilename += ".bvec";
+      if(outputBValues == "")
+        {
+        outputFSLBValFilename = outputVolumeHeaderName.substr(0,extensionPos);
+        outputFSLBValFilename += ".bval";
+        }
+      else
+        {
+        outputFSLBValFilename = outputBValues;
+        }
+      if(outputBVectors == "")
+        {
+        outputFSLBVecFilename = outputVolumeHeaderName.substr(0,extensionPos);
+        outputFSLBVecFilename += ".bvec";
+        }
+      else
+        {
+        outputFSLBVecFilename = outputBVectors;
+        }
     }
 
   //
@@ -1682,7 +1701,7 @@ int main(int argc, char *argv[])
 
     //
     // FSLOutput requires a NIfT file
-    if(!FSLOutput)
+    if(conversionMode != "DicomToFSL")
       {
       if(!nrrdFormat)
         {
@@ -1709,7 +1728,7 @@ int main(int argc, char *argv[])
         int rval = WriteVolume(dmImage,outputVolumeHeaderName);
         //
         // A single usable volume indicates the input is not a DWI file
-        // and therefore DicomToNrrdConverter is simply that -- it
+        // and therefore DWIConvert is simply that -- it
         // converts a DICOM volume to whatever format you specify by way
         // of the output filename.
         FreeHeaders(allHeaders);
@@ -1826,7 +1845,7 @@ int main(int argc, char *argv[])
     // write header file
     // This part follows a DWI NRRD file in NRRD format 5.
     // There should be a better way using itkNRRDImageIO.
-    if(!FSLOutput)
+    if(conversionMode != "DicomToFSL")
       {
       std::ofstream header;
       //std::string headerFileName = outputDir + "/" + outputFileName;
