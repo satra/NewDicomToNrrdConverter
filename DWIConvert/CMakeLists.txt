@@ -37,7 +37,8 @@ include(${GenerateCLP_USE_FILE})
 find_package(LIBICONV REQUIRED)
 
 set(CLP DWIConvert)
-set ( ${CLP}_SOURCE ${CLP}.cxx FSLToNRRD.cxx)
+set ( ${CLP}_SOURCE ${CLP}.cxx FSLToNrrd.cxx
+  NrrdToFSL.cxx)
 
 generateclp(${CLP}_SOURCE ${CLP}.xml)
 

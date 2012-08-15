@@ -376,6 +376,16 @@ int main(int argc, char *argv[])
     return FSLToNrrd(inputVolume, outputVolume,
                      inputBValues, inputBVectors);
     }
+  if(conversionMode == "NrrdToFSL")
+    {
+    extern int NrrdToFSL(const std::string &inputVolume,
+                         const std::string &outputVolume,
+                         const std::string &outputBValues,
+                         const std::string &outputBVectors);
+    return NrrdToFSL(inputVolume,outputVolume,
+                     outputBValues,outputBVectors);
+    }
+
 
   // needed for lossless JPeg, otherwise
   //
