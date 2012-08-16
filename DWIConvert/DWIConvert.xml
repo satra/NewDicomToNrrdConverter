@@ -129,7 +129,7 @@
     </file>
     <file>
       <name>outputBVectors</name>
-      <longflag>--outputbVectors</longflag>
+      <longflag>--outputBVectors</longflag>
       <label>B Vector File</label>
       <channel>output</channel>
       <description><![CDATA[B Vector text file]]></description>

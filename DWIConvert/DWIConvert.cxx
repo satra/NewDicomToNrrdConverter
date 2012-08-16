@@ -43,6 +43,7 @@ DICOM Data Dictionary: http://medical.nema.org/Dicom/2011/11_06pu.pdf
 #include "DCMTKFileReader.h"
 #include "djdecode.h"
 #include "StringContains.h"
+#include "DWIConvertUtils.h"
 
 unsigned int ConvertFromCharPtr(const char *s)
 {
@@ -271,30 +272,6 @@ void FreeHeaders(std::vector<DCMTKFileReader *> &allHeaders)
 
 typedef short PixelValueType;
 typedef itk::Image< PixelValueType, 3 > VolumeType;
-
-/** write a scalar short image
- */
-int
-WriteVolume( const VolumeType *img, const std::string &fname )
-{
-  itk::ImageFileWriter< VolumeType >::Pointer imgWriter =
-    itk::ImageFileWriter< VolumeType >::New();
-
-  imgWriter->SetInput( img );
-  imgWriter->SetFileName( fname.c_str() );
-  try
-    {
-    imgWriter->Update();
-    }
-  catch (itk::ExceptionObject &excp)
-    {
-    std::cerr << "Exception thrown while writing "
-              << fname << std::endl;
-    std::cerr << excp << std::endl;
-    return EXIT_FAILURE;
-    }
-  return EXIT_SUCCESS;
-}
 
 int
 Write4DVolume( VolumeType::Pointer &img, int nVolumes, const std::string &fname )
@@ -932,7 +909,7 @@ int main(int argc, char *argv[])
       {
       std::cout << " Warning: vendor type not valid" << std::endl;
       // treate the dicom series as an ordinary image and write a straight nrrd file.
-      WriteVolume( reader->GetOutput(), outputVolumeHeaderName );
+      WriteVolume<VolumeType>( reader->GetOutput(), outputVolumeHeaderName );
       FreeHeaders(allHeaders);
       return EXIT_SUCCESS;
       }
@@ -1704,7 +1681,7 @@ int main(int argc, char *argv[])
     else
       {
       std::cout << "Warning:  invalid vendor found." << std::endl;
-      WriteVolume( reader->GetOutput(), outputVolumeHeaderName );
+      WriteVolume<VolumeType>( reader->GetOutput(), outputVolumeHeaderName );
       FreeHeaders(allHeaders);
       return EXIT_SUCCESS;
       }
@@ -1735,7 +1712,7 @@ int main(int argc, char *argv[])
         }
       else if(nUsableVolumes == 1)
         {
-        int rval = WriteVolume(dmImage,outputVolumeHeaderName);
+        int rval = WriteVolume<VolumeType>(dmImage,outputVolumeHeaderName);
         //
         // A single usable volume indicates the input is not a DWI file
         // and therefore DWIConvert is simply that -- it
@@ -1996,24 +1973,18 @@ int main(int argc, char *argv[])
     else
       {
       // write out in FSL format
-      std::ofstream bValFile;
-      bValFile.open(outputFSLBValFilename.c_str(),std::ios::out | std::ios::binary);
-      for(unsigned int k = 0; k < nUsableVolumes; ++k)
+      if(WriteBValues<float>(bValues,outputFSLBValFilename) != EXIT_SUCCESS)
         {
-        bValFile << bValues[k] << std::endl;
+        std::cerr << "Failed to write " << outputFSLBValFilename
+                  << std::endl;
+        return EXIT_FAILURE;
         }
-      bValFile.close();
-
-      std::ofstream bVecFile;
-      bVecFile.open(outputFSLBVecFilename.c_str(),std::ios::out | std::ios::binary);
-      for(unsigned int k = 0; k < gradientVectors.size(); ++k)
+      if(WriteBVectors<double>(gradientVectors,outputFSLBVecFilename) != EXIT_SUCCESS)
         {
-        bVecFile << gradientVectors[k][0] << " "
-                 << gradientVectors[k][1] << " "
-                 << gradientVectors[k][2]
-                 << std::endl;
+        std::cerr << "Failed to write " << outputFSLBVecFilename
+                  << std::endl;
+        return EXIT_FAILURE;
         }
-      bVecFile.close();
       }
 
     if( writeProtocolGradientsFile == true )
