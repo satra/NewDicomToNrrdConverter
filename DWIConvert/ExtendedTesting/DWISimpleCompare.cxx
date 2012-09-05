@@ -144,7 +144,7 @@ int DoIt( const std::string &inputVolume1, const std::string &inputVolume2, Pixe
     return EXIT_FAILURE;
     }
 
-  if(!RecoverBValue<ImageType>(secondImage,bVal2) != EXIT_SUCCESS)
+  if(RecoverBValue<ImageType>(secondImage,bVal2) != EXIT_SUCCESS)
     {
     std::cerr << "Missing BValue in "
               << inputVolume2 << std::endl;
