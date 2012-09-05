@@ -110,11 +110,14 @@ int DoIt( const std::string &inputVolume1, const std::string &inputVolume2, Pixe
     SubtractFilterType::New();
   subtractFilter->SetInput1(firstReader->GetOutput());
   subtractFilter->SetInput2(secondReader->GetOutput());
+  subtractFilter->Update();
+
+  typename ImageType::Pointer subtractImage = subtractFilter->GetOutput();
 
   typedef itk::StatisticsImageFilter<ImageType> StatisticsFilterType;
   typename StatisticsFilterType::Pointer statisticsFilter =
     StatisticsFilterType::New();
-  statisticsFilter->SetInput(subtractFilter->GetOutput());
+  statisticsFilter->SetInput(subtractImage);
   try
     {
     statisticsFilter->Update();
@@ -129,6 +132,7 @@ int DoIt( const std::string &inputVolume1, const std::string &inputVolume2, Pixe
   if(vcl_fabs(static_cast<float>(statisticsFilter->GetMaximum())) > 0.0001 ||
      vcl_fabs(static_cast<float>(statisticsFilter->GetMinimum())) > 0.0001)
     {
+    std::cerr << "Image Data Differs" << std::endl;
     return EXIT_FAILURE;
     }
   if(!CheckDWIData)
@@ -173,6 +177,11 @@ int DoIt( const std::string &inputVolume1, const std::string &inputVolume2, Pixe
   if(!CloseEnough(firstGVector,secondGVector))
     {
     std::cerr << "Gradient vectors don't match" << std::endl;
+    std::cerr << "First Vector ";
+    PrintVec< std::vector<double> >(firstGVector);
+    std::cerr << "Second Vector ";
+    PrintVec< std::vector<double> >(firstGVector);
+
     return EXIT_FAILURE;
     }
   return EXIT_SUCCESS;
