@@ -734,6 +734,15 @@ int main(int argc, char *argv[])
             reader->GetOutput()->SetPixel( idx, w[k] );
             }
           }
+#if 0
+        itk::ImageFileWriter< VolumeType >::Pointer rawWriter = itk::ImageFileWriter< VolumeType >::New();
+        itk::RawImageIO<PixelValueType, 3>::Pointer rawIO = itk::RawImageIO<PixelValueType, 3>::New();
+        rawWriter->SetImageIO( rawIO );
+        rawIO->SetByteOrderToLittleEndian();
+        rawWriter->SetFileName( "dwiconvert.raw");
+        rawWriter->SetInput( reader->GetOutput() );
+        rawWriter->Update();
+#endif
         }
       }
     itk::Matrix<double,3,3> MeasurementFrame;
@@ -1035,11 +1044,7 @@ int main(int argc, char *argv[])
           {
           std::string DiffusionDirectionality;
           bool useSupplement49Definitions(false);
-          if(allHeaders[k]->GetElementCS(0x0018,0x9075,DiffusionDirectionality,false) == EXIT_SUCCESS)
-            {
-            useSupplement49Definitions = true;
-            }
-          else if(allHeaders[k]->GetElementOB(0x0018,0x9075,DiffusionDirectionality,false) == EXIT_SUCCESS)
+          if(allHeaders[k]->GetElementCSorOB(0x0018,0x9075,DiffusionDirectionality,false) == EXIT_SUCCESS)
             {
             useSupplement49Definitions = true;
             }
@@ -1062,10 +1067,7 @@ int main(int argc, char *argv[])
               b = static_cast<double>(floatB);
               }
             std::string tag;
-            if(allHeaders[k]->GetElementCS(0x2001, 0x1004, tag, false ) != EXIT_SUCCESS)
-              {
-              allHeaders[k]->GetElementOB(0x2001, 0x1004, tag, false );
-              }
+            allHeaders[k]->GetElementCSorOB(0x2001, 0x1004, tag, false );
             if(StringContains(tag,"I") && b != 0)
               {
               DiffusionDirectionality="ISOTROPIC";
@@ -1677,6 +1679,12 @@ int main(int argc, char *argv[])
         FreeHeaders(allHeaders);
         return EXIT_FAILURE;
         }
+      // INSANE VERY BAD NO GOOD HACK! All the code above is terrible
+      // and generates a garbage image. I only noticed it because I
+      // though I was actually supposed to write it out to the NRRD
+      // file, when in fact the image with skipped volumes is built
+      // but never used in the original program.
+      dmImage = reader->GetOutput();
       }
     else
       {

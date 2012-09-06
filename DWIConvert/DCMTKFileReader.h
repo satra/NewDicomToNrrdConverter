@@ -712,6 +712,23 @@ public:
       return EXIT_SUCCESS;
     }
 
+  int  GetElementCSorOB(unsigned short group,
+                        unsigned short element,
+                        std::string &target,
+                        bool throwException = true)
+    {
+      if(this->GetElementCS(group,element,target,false) == EXIT_SUCCESS)
+        {
+        return EXIT_SUCCESS;
+        }
+      std::string val;
+      if(this->GetElementOB(group,element,target,throwException) != EXIT_SUCCESS)
+        {
+        return EXIT_FAILURE;
+        }
+      return EXIT_SUCCESS;
+    }
+
   /** get an OB OtherByte Item
    */
   int  GetElementOB(unsigned short group,
