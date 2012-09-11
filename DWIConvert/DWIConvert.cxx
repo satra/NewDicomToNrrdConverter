@@ -1611,6 +1611,7 @@ int main(int argc, char *argv[])
       }
     else if (StringContains(vendor, "PHILIPS"))
       {
+#if 0
       VolumeType::Pointer img = reader->GetOutput();
 
       VolumeType::RegionType region = img->GetLargestPossibleRegion();
@@ -1679,6 +1680,7 @@ int main(int argc, char *argv[])
         FreeHeaders(allHeaders);
         return EXIT_FAILURE;
         }
+#endif
       // INSANE VERY BAD NO GOOD HACK! All the code above is terrible
       // and generates a garbage image. I only noticed it because I
       // though I was actually supposed to write it out to the NRRD

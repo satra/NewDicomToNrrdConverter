@@ -9,7 +9,7 @@
 #include <itkImageFileWriter.h>
 #include <itkImageFileReader.h>
 #include <itkNrrdImageIO.h>
-
+#include "itksys/SystemTools.hxx"
 #include <itkImageRegionIterator.h>
 #include <itkImageRegionConstIterator.h>
 #include <itkSubtractImageFilter.h>
@@ -64,6 +64,7 @@ template <class PixelType>
 int DoIt( const std::string &inputVolume1, const std::string &inputVolume2, PixelType, bool CheckDWIData )
 {
 
+  int rval(EXIT_SUCCESS);
   typedef itk::Image<PixelType,DIMENSION> ImageType;
   typedef itk::ImageFileReader<ImageType> FileReaderType;
 
@@ -132,12 +133,23 @@ int DoIt( const std::string &inputVolume1, const std::string &inputVolume2, Pixe
   if(vcl_fabs(static_cast<float>(statisticsFilter->GetMaximum())) > 0.0001 ||
      vcl_fabs(static_cast<float>(statisticsFilter->GetMinimum())) > 0.0001)
     {
-    std::cerr << "Image Data Differs" << std::endl;
-    return EXIT_FAILURE;
+    std::cerr << "Image Data Differs -- min diff "
+              << statisticsFilter->GetMinimum() << " max diff "
+              << statisticsFilter->GetMaximum() << std::endl;
+    typedef typename itk::ImageFileWriter<ImageType> ImageWriter;
+    typename ImageWriter::Pointer writer = ImageWriter::New();
+    writer->SetInput(subtractImage);
+    std::string filename =
+      itksys::SystemTools::GetFilenameWithoutExtension(inputVolume1);
+    filename = itksys::SystemTools::GetFilenameName(filename);
+    filename += "-diff.nrrd";
+    writer->SetFileName(filename);
+    writer->Write();
+    rval = EXIT_FAILURE;
     }
   if(!CheckDWIData)
     {
-    return EXIT_SUCCESS;
+    return rval;
     }
 
   double bVal1, bVal2;
@@ -159,7 +171,7 @@ int DoIt( const std::string &inputVolume1, const std::string &inputVolume2, Pixe
     {
     std::cerr << "BValue mismatch: " << bVal1
               << " " << bVal2 << std::endl;
-    return EXIT_FAILURE;
+    rval = EXIT_FAILURE;
     }
 
   std::vector< std::vector<double> > firstGVector,secondGVector;
@@ -180,11 +192,11 @@ int DoIt( const std::string &inputVolume1, const std::string &inputVolume2, Pixe
     std::cerr << "First Vector ";
     PrintVec< std::vector<double> >(firstGVector);
     std::cerr << "Second Vector ";
-    PrintVec< std::vector<double> >(firstGVector);
+    PrintVec< std::vector<double> >(secondGVector);
 
-    return EXIT_FAILURE;
+    rval = EXIT_FAILURE;
     }
-  return EXIT_SUCCESS;
+  return rval;
 }
 
 void GetImageType(std::string fileName,
