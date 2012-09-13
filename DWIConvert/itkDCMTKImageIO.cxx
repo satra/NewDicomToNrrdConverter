@@ -162,6 +162,21 @@ bool DCMTKImageIO::CanWriteFile(const char *name)
   return false;
 }
 
+// Internal function to rescale pixel according to Rescale Slope/Intercept
+template< class TBuffer >
+void RescaleFunction(TBuffer *buffer,
+                     double slope,
+                     double intercept,
+                     size_t size)
+{
+  for ( unsigned int i = 0; i < size; i++ )
+    {
+    double tmp = static_cast< double >( buffer[i] ) * slope;
+    tmp += intercept;
+    buffer[i] = static_cast< TBuffer >( tmp );
+    }
+}
+
 //------------------------------------------------------------------------------
 void DCMTKImageIO::Read(void *buffer)
 {
@@ -178,65 +193,139 @@ void DCMTKImageIO::Read(void *buffer)
       m_DImage = new DicomImage( m_FileName.c_str() );
       }
     }
-
-  if( m_DImage != NULL )
+  if(m_DImage == 0)
     {
-    if (m_DImage->getStatus() == EIS_Normal)
-      {
-      m_Dimensions[0] = (unsigned int)(m_DImage->getWidth());
-      m_Dimensions[1] = (unsigned int)(m_DImage->getHeight());
-      // m_Spacing[0] =
-      // m_Spacing[1] =
-      // m_Origin[0] =
-      // m_Origin[1] =
+    return; // throw exception perhaps?
+    }
+  if (m_DImage->getStatus() == EIS_Normal)
+    {
+    m_Dimensions[0] = (unsigned int)(m_DImage->getWidth());
+    m_Dimensions[1] = (unsigned int)(m_DImage->getHeight());
+    // m_Spacing[0] =
+    // m_Spacing[1] =
+    // m_Origin[0] =
+    // m_Origin[1] =
 
-      // pick a size for output image (should get it from DCMTK in the ReadImageInformation()))
-      // NOTE ALEX: EP_Representation is made for that
-      // but i don t know yet where to fetch it from
-      unsigned bitdepth;
-      switch(this->m_ComponentType)
+    // pick a size for output image (should get it from DCMTK in the ReadImageInformation()))
+    // NOTE ALEX: EP_Representation is made for that
+    // but i don t know yet where to fetch it from
+    unsigned bitdepth;
+    unsigned scalarSize;
+    switch(this->m_ComponentType)
+      {
+      case UCHAR:
+        scalarSize = sizeof(unsigned char);
+        bitdepth = scalarSize * 8;
+        break;
+      case CHAR:
+        scalarSize = sizeof(char);
+        bitdepth = scalarSize * 8;
+        break;
+      case USHORT:
+        scalarSize = sizeof(unsigned short);
+        bitdepth = scalarSize * 8;
+        break;
+      case SHORT:
+        scalarSize = sizeof(short);
+        bitdepth = scalarSize * 8;
+        break;
+      case UINT:
+        scalarSize = sizeof(unsigned int);
+        bitdepth = scalarSize * 8;
+        break;
+      case INT:
+        scalarSize = sizeof(int);
+        bitdepth = scalarSize * 8;
+        break;
+      case ULONG:
+        scalarSize = sizeof(unsigned long);
+        bitdepth = scalarSize * 8;
+        break;
+      case LONG:
+        scalarSize = sizeof(long);
+        bitdepth = scalarSize * 8;
+        break;
+      case UNKNOWNCOMPONENTTYPE:
+      case FLOAT:
+      case DOUBLE:
+        itkExceptionMacro(<< "Bad component type" <<
+                          ImageIOBase::GetComponentTypeAsString(this->m_ComponentType));
+        break;
+      }
+    // get the image in the DCMTK buffer
+    unsigned long len = m_DImage->getOutputDataSize(bitdepth);
+    m_DImage->getOutputData(buffer, len, bitdepth,0);
+    if(this->m_RescaleSlope != 1.0 || m_RescaleIntercept != 0)
+      {
+      size_t numElts = len / scalarSize;
+      switch ( this->m_ComponentType )
         {
-        case UCHAR:
-          bitdepth = sizeof(unsigned char) * 8;
-          break;
         case CHAR:
-          bitdepth = sizeof(char) * 8;
+          RescaleFunction(static_cast< char * >( buffer ),
+                          this->m_RescaleSlope,
+                          this->m_RescaleIntercept, numElts);
           break;
-        case USHORT:
-          bitdepth = sizeof(unsigned short) * 8;
+        case UCHAR:
+          RescaleFunction(static_cast< unsigned char * >( buffer ),
+                          this->m_RescaleSlope,
+                          this->m_RescaleIntercept, numElts);
           break;
         case SHORT:
-          bitdepth = sizeof(short) * 8;
+          RescaleFunction(static_cast< short * >( buffer ),
+                          this->m_RescaleSlope,
+                          this->m_RescaleIntercept, numElts);
           break;
-        case UINT:
-          bitdepth = sizeof(unsigned int) * 8;
+        case USHORT:
+          RescaleFunction(static_cast< unsigned short * >( buffer ),
+                          this->m_RescaleSlope,
+                          this->m_RescaleIntercept, numElts);
           break;
         case INT:
-          bitdepth = sizeof(int) * 8;
+          RescaleFunction(static_cast< int * >( buffer ),
+                          this->m_RescaleSlope,
+                          this->m_RescaleIntercept, numElts);
           break;
-        case ULONG:
-          bitdepth = sizeof(unsigned long) * 8;
+        case UINT:
+          RescaleFunction(static_cast< unsigned int * >( buffer ),
+                          this->m_RescaleSlope,
+                          this->m_RescaleIntercept, numElts);
           break;
         case LONG:
-          bitdepth = sizeof(long) * 8;
+          RescaleFunction(static_cast< long * >( buffer ),
+                          this->m_RescaleSlope,
+                          this->m_RescaleIntercept, numElts);
           break;
-        case UNKNOWNCOMPONENTTYPE:
+        case ULONG:
+          RescaleFunction(static_cast< unsigned long * >( buffer ),
+                          this->m_RescaleSlope,
+                          this->m_RescaleIntercept, numElts);
+          break;
         case FLOAT:
-        case DOUBLE:
-          itkExceptionMacro(<< "Bad component type" <<
-                            ImageIOBase::GetComponentTypeAsString(this->m_ComponentType));
+          RescaleFunction(static_cast< float * >( buffer ),
+                          this->m_RescaleSlope,
+                          this->m_RescaleIntercept, numElts);
           break;
+        case DOUBLE:
+          RescaleFunction(static_cast< double * >( buffer ),
+                          this->m_RescaleSlope,
+                          this->m_RescaleIntercept, numElts);
+          break;
+        default:
+          if ( this->GetPixelType() == SCALAR )
+            {
+            itkExceptionMacro(<< "Datatype: "
+                              << this->GetComponentTypeAsString(this->m_ComponentType)
+                              << " not supported");
+            }
         }
-      // get the image in the DCMTK buffer
-      unsigned long len = m_DImage->getOutputDataSize(bitdepth);
-      m_DImage->getOutputData(buffer, len, bitdepth);
+
       }
-    else
-      {
-      std::cerr << "Error: cannot load DICOM image (";
-      std::cerr << DicomImage::getString(m_DImage->getStatus());
-      std::cerr << ")" << std::endl;
-      }
+    }
+  else
+    {
+    std::cerr << "Error: cannot load DICOM image (";
+    std::cerr << DicomImage::getString(m_DImage->getStatus());
+    std::cerr << ")" << std::endl;
     }
 
 }
@@ -298,6 +387,44 @@ void DCMTKImageIO::ReadImageInformation()
   for(unsigned i = 0; i < spacingLimit; i++)
     {
     this->m_Spacing[i] = spacing[i];
+    }
+
+  if(this->m_DImage != 0)
+    {
+    delete m_DImage;
+    }
+  this->m_DImage = new DicomImage(this->m_FileName.c_str());
+  EP_Representation pixelRep = this->m_DImage->getInterData()->getRepresentation();
+  switch(pixelRep)
+    {
+    case EPR_Uint8:
+      this->m_ComponentType = UCHAR; break;
+    case EPR_Sint8:
+      this->m_ComponentType = CHAR; break;
+    case EPR_Uint16:
+      this->m_ComponentType = USHORT; break;
+    case EPR_Sint16:
+      this->m_ComponentType = SHORT; break;
+    case EPR_Uint32:
+      this->m_ComponentType = UINT; break;
+    case EPR_Sint32:
+      this->m_ComponentType = INT; break;
+    default: // HACK should throw exception
+      this->m_ComponentType = USHORT; break;
+    }
+  int numPlanes = this->m_DImage->getInterData()->getPlanes();
+  switch(numPlanes)
+    {
+    case 1:
+      this->m_PixelType = SCALAR; break;
+    case 2:
+      // hack, supposedly Luminence/Alpha
+      this->m_PixelType = VECTOR; break;
+      break;
+    case 3:
+      this->m_PixelType = RGB; break;
+    case 4:
+      this->m_PixelType = RGBA; break;
     }
 }
 
