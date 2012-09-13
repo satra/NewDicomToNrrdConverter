@@ -29,8 +29,8 @@ DICOM Data Dictionary: http://medical.nema.org/Dicom/2011/11_06pu.pdf
 
 #include "itkMacro.h"
 #include "itkIntTypes.h"
-#include "itkGDCMSeriesFileNames.h"
-#include "itkGDCMImageIO.h"
+#include "itkDCMTKSeriesFileNames.h"
+#include "itkDCMTKImageIO.h"
 #include "itkRawImageIO.h"
 #include "itkImage.h"
 #include "itkImageRegionIteratorWithIndex.h"
@@ -40,7 +40,8 @@ DICOM Data Dictionary: http://medical.nema.org/Dicom/2011/11_06pu.pdf
 #include "itksys/Directory.hxx"
 #include "itksys/SystemTools.hxx"
 #include "itksys/Base64.h"
-#include "DCMTKFileReader.h"
+#undef HAVE_SSTREAM
+#include "itkDCMTKFileReader.h"
 #include "djdecode.h"
 #include "StringContains.h"
 #include "DWIConvertUtils.h"
@@ -235,34 +236,34 @@ AddFlagsToDictionary()
                                                                    "Diffusion Direction F/H", 4, 4 , 0,true,
                                                                    "dicomtonrrd");
 
-  DCMTKFileReader::AddDictEntry(GEDictBValue);
-  DCMTKFileReader::AddDictEntry(GEDictXGradient);
-  DCMTKFileReader::AddDictEntry(GEDictYGradient);
-  DCMTKFileReader::AddDictEntry(GEDictZGradient);
+  itk::DCMTKFileReader::AddDictEntry(GEDictBValue);
+  itk::DCMTKFileReader::AddDictEntry(GEDictXGradient);
+  itk::DCMTKFileReader::AddDictEntry(GEDictYGradient);
+  itk::DCMTKFileReader::AddDictEntry(GEDictZGradient);
 
   // relevant Siemens private tags
-  DCMTKFileReader::AddDictEntry(SiemensMosiacParameters);
-  DCMTKFileReader::AddDictEntry(SiemensDictNMosiac);
-  DCMTKFileReader::AddDictEntry(SiemensDictBValue);
-  DCMTKFileReader::AddDictEntry(SiemensDictDiffusionDirection);
-  DCMTKFileReader::AddDictEntry(SiemensDictDiffusionMatrix);
-  DCMTKFileReader::AddDictEntry(SiemensDictShadowInfo);
+  itk::DCMTKFileReader::AddDictEntry(SiemensMosiacParameters);
+  itk::DCMTKFileReader::AddDictEntry(SiemensDictNMosiac);
+  itk::DCMTKFileReader::AddDictEntry(SiemensDictBValue);
+  itk::DCMTKFileReader::AddDictEntry(SiemensDictDiffusionDirection);
+  itk::DCMTKFileReader::AddDictEntry(SiemensDictDiffusionMatrix);
+  itk::DCMTKFileReader::AddDictEntry(SiemensDictShadowInfo);
 
   // relevant Philips private tags
-  DCMTKFileReader::AddDictEntry(PhilipsDictBValue);
-  DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirection);
-  DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionRL);
-  DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionAP);
-  DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionFH);
+  itk::DCMTKFileReader::AddDictEntry(PhilipsDictBValue);
+  itk::DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirection);
+  itk::DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionRL);
+  itk::DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionAP);
+  itk::DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionFH);
 
 }
 
 /** Free the headers for all dicom files.
  *  also calls the DJDecoder cleanup.
  */
-void FreeHeaders(std::vector<DCMTKFileReader *> &allHeaders)
+void FreeHeaders(std::vector<itk::DCMTKFileReader *> &allHeaders)
 {
-  for(std::vector<DCMTKFileReader *>::iterator it = allHeaders.begin();
+  for(std::vector<itk::DCMTKFileReader *>::iterator it = allHeaders.begin();
       it != allHeaders.end(); ++it)
     {
     delete (*it);
@@ -369,7 +370,7 @@ int main(int argc, char *argv[])
   DJDecoderRegistration::registerCodecs();
 
   typedef itk::ImageSeriesReader< VolumeType > ReaderType;
-  typedef itk::GDCMSeriesFileNames             InputNamesGeneratorType;
+  typedef itk::DCMTKSeriesFileNames             InputNamesGeneratorType;
 
   AddFlagsToDictionary();
   bool nrrdFormat(true);
@@ -475,7 +476,7 @@ int main(int argc, char *argv[])
     inputFileNames.resize( 0 );
     itksys::Directory directory;
     directory.Load( itksys::SystemTools::CollapseFullPath(inputDicomDirectory.c_str()).c_str() );
-    typedef itk::GDCMImageIO ImageIOType;
+    typedef itk::DCMTKImageIO ImageIOType;
     ImageIOType::Pointer gdcmIOTest = ImageIOType::New();
 
     // for each patient directory
@@ -506,10 +507,10 @@ int main(int argc, char *argv[])
   //////////////////////////////////////////////////
   // load all files in the dicom series.
   //////////////////////////////////////////////////
-  std::vector<DCMTKFileReader *> allHeaders(inputFileNames.size());
+  std::vector<itk::DCMTKFileReader *> allHeaders(inputFileNames.size());
   for(unsigned i = 0; i < allHeaders.size(); ++i)
     {
-    allHeaders[i] = new DCMTKFileReader;
+    allHeaders[i] = new itk::DCMTKFileReader;
     allHeaders[i]->SetFileName(inputFileNames[i]);
     try
       {
@@ -523,12 +524,6 @@ int main(int argc, char *argv[])
       }
     }
 
-#if (ITK_VERSION_MAJOR > 3)
-  // Since GDCM2 can't properly sort the image filenames
-  // do so here
-  // sort in file number order, since GDCMSeries broke that ordering
-  std::sort(allHeaders.begin(),allHeaders.end(),CompareDCMTKFileReaders);
-#endif
   //
   // reorder the filename list
   inputFileNames.resize( 0 );
@@ -620,7 +615,7 @@ int main(int argc, char *argv[])
      //////////////////////////////////////////////////
     // 1) Read the input series as an array of slices
     ReaderType::Pointer reader = ReaderType::New();
-    itk::GDCMImageIO::Pointer gdcmIO = itk::GDCMImageIO::New();
+    itk::DCMTKImageIO::Pointer gdcmIO = itk::DCMTKImageIO::New();
     reader->SetImageIO( gdcmIO );
     reader->SetFileNames( inputFileNames );
     const unsigned int nSlice = inputFileNames.size();
@@ -1110,7 +1105,7 @@ int main(int argc, char *argv[])
                 //std::cout << "Looking for  0018|9089 in sequence 0018,9076" << std::endl;
                 // gdcm::SeqEntry *
                 // DiffusionSeqEntry=allHeaders[k]->GetSeqEntry(0x0018,0x9076);
-                DCMTKSequence DiffusionSeqEntry;
+                itk::DCMTKSequence DiffusionSeqEntry;
                 allHeaders[k]->GetElementSQ(0x0018,0x9076,DiffusionSeqEntry);
                 // const unsigned int
                 // n=DiffusionSeqEntry->GetNumberOfSQItems();
@@ -1168,8 +1163,8 @@ int main(int argc, char *argv[])
         DiffusionVectors.clear();
         useVolume.clear();
 
-        DCMTKSequence perFrameFunctionalGroup;
-        DCMTKSequence innerSeq;
+        itk::DCMTKSequence perFrameFunctionalGroup;
+        itk::DCMTKSequence innerSeq;
         double dwbValue;
 
         allHeaders[0]->GetElementSQ(0x5200,0x9230,perFrameFunctionalGroup);
@@ -1178,11 +1173,11 @@ int main(int argc, char *argv[])
         for(unsigned long i = 0;
             i < static_cast<unsigned long>(perFrameFunctionalGroup.card()); ++i)
           {
-          DCMTKSequence curSequence;
+          itk::DCMTKSequence curSequence;
           perFrameFunctionalGroup.GetSequence(i,curSequence);
           // index slice locations with string origin
           {
-          DCMTKSequence originSeq;
+          itk::DCMTKSequence originSeq;
           curSequence.GetElementSQ(0x0020, 0x9113,originSeq);
           originSeq.GetSequence(0,innerSeq);
           std::string originString;
@@ -1192,7 +1187,7 @@ int main(int argc, char *argv[])
 
           std::string dirValue;
           {
-          DCMTKSequence mrDiffusionSeq;
+          itk::DCMTKSequence mrDiffusionSeq;
           curSequence.GetElementSQ(0x0018,0x9117,mrDiffusionSeq);
           mrDiffusionSeq.GetSequence(0,innerSeq);
           innerSeq.GetElementCS(0x0018,0x9075,dirValue);
@@ -1227,9 +1222,9 @@ int main(int argc, char *argv[])
             useVolume.push_back(1);
             innerSeq.GetElementFD(0x0018,0x9087,dwbValue);
 
-            DCMTKSequence volSeq;
+            itk::DCMTKSequence volSeq;
             innerSeq.GetElementSQ(0x0018, 0x9076,volSeq);
-            DCMTKSequence innerSeq2;
+            itk::DCMTKSequence innerSeq2;
             volSeq.GetSequence(0,innerSeq2);
             double *dwgVal;
             innerSeq2.GetElementFD(0x0018,0x9089,dwgVal);
