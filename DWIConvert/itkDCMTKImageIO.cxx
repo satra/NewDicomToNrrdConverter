@@ -162,21 +162,6 @@ bool DCMTKImageIO::CanWriteFile(const char *name)
   return false;
 }
 
-// Internal function to rescale pixel according to Rescale Slope/Intercept
-template< class TBuffer >
-void RescaleFunction(TBuffer *buffer,
-                     double slope,
-                     double intercept,
-                     size_t size)
-{
-  for ( unsigned int i = 0; i < size; i++ )
-    {
-    double tmp = static_cast< double >( buffer[i] ) * slope;
-    tmp += intercept;
-    buffer[i] = static_cast< TBuffer >( tmp );
-    }
-}
-
 //------------------------------------------------------------------------------
 void DCMTKImageIO::Read(void *buffer)
 {
@@ -254,72 +239,7 @@ void DCMTKImageIO::Read(void *buffer)
       }
     // get the image in the DCMTK buffer
     unsigned long len = m_DImage->getOutputDataSize(bitdepth);
-    m_DImage->getOutputData(buffer, len, bitdepth,0);
-    if(this->m_RescaleSlope != 1.0 || m_RescaleIntercept != 0)
-      {
-      size_t numElts = len / scalarSize;
-      switch ( this->m_ComponentType )
-        {
-        case CHAR:
-          RescaleFunction(static_cast< char * >( buffer ),
-                          this->m_RescaleSlope,
-                          this->m_RescaleIntercept, numElts);
-          break;
-        case UCHAR:
-          RescaleFunction(static_cast< unsigned char * >( buffer ),
-                          this->m_RescaleSlope,
-                          this->m_RescaleIntercept, numElts);
-          break;
-        case SHORT:
-          RescaleFunction(static_cast< short * >( buffer ),
-                          this->m_RescaleSlope,
-                          this->m_RescaleIntercept, numElts);
-          break;
-        case USHORT:
-          RescaleFunction(static_cast< unsigned short * >( buffer ),
-                          this->m_RescaleSlope,
-                          this->m_RescaleIntercept, numElts);
-          break;
-        case INT:
-          RescaleFunction(static_cast< int * >( buffer ),
-                          this->m_RescaleSlope,
-                          this->m_RescaleIntercept, numElts);
-          break;
-        case UINT:
-          RescaleFunction(static_cast< unsigned int * >( buffer ),
-                          this->m_RescaleSlope,
-                          this->m_RescaleIntercept, numElts);
-          break;
-        case LONG:
-          RescaleFunction(static_cast< long * >( buffer ),
-                          this->m_RescaleSlope,
-                          this->m_RescaleIntercept, numElts);
-          break;
-        case ULONG:
-          RescaleFunction(static_cast< unsigned long * >( buffer ),
-                          this->m_RescaleSlope,
-                          this->m_RescaleIntercept, numElts);
-          break;
-        case FLOAT:
-          RescaleFunction(static_cast< float * >( buffer ),
-                          this->m_RescaleSlope,
-                          this->m_RescaleIntercept, numElts);
-          break;
-        case DOUBLE:
-          RescaleFunction(static_cast< double * >( buffer ),
-                          this->m_RescaleSlope,
-                          this->m_RescaleIntercept, numElts);
-          break;
-        default:
-          if ( this->GetPixelType() == SCALAR )
-            {
-            itkExceptionMacro(<< "Datatype: "
-                              << this->GetComponentTypeAsString(this->m_ComponentType)
-                              << " not supported");
-            }
-        }
-
-      }
+    m_DImage->getOutputData(buffer, len); // ,  bitdepth,0);
     }
   else
     {
