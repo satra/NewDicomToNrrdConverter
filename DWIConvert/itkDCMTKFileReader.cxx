@@ -39,6 +39,7 @@
 #include "dcvrtm.h"          /* for DCMTime */
 #include "dcvrda.h"          /* for DcmDate */
 #include "dcvrpn.h"          /* for DcmPersonName */
+#include "dcmimage.h"        /* fore DicomImage */
 // #include "diregist.h"     /* include to support color images */
 #include "vnl/vnl_cross.h"
 
@@ -47,11 +48,55 @@ namespace itk
 {
 
 void
+DCMTKItem
+::SetDcmItem(DcmItem *item)
+{
+  this->m_DcmItem = item;
+}
+int
+DCMTKItem
+::GetElementSQ(unsigned short group,
+                 unsigned short entry,
+                 DCMTKSequence &sequence,
+                 bool throwException)
+{
+  DcmSequenceOfItems *seq;
+  DcmTagKey tagKey(group,entry);
+  //  this->m_DcmItem->print(std::cerr);
+  if(this->m_DcmItem->findAndGetSequence(tagKey,seq) != EC_Normal)
+    {
+    DCMTKException(<< "Can't find sequence "
+                   << std::hex << group << " "
+                   << std::hex << entry)
+      }
+  sequence.SetDcmSequenceOfItems(seq);
+  return EXIT_SUCCESS;
+}
+
+
+int
+DCMTKSequence
+::GetStack(unsigned short group,
+             unsigned short element,
+             DcmStack &resultStack, bool throwException)
+{
+  DcmTagKey tagkey(group,element);
+  if(this->m_DcmSequenceOfItems->search(tagkey,resultStack) != EC_Normal)
+    {
+    DCMTKException(<< "Can't find tag " << std::hex << group << " "
+                   << element << std::dec);
+    }
+  return EXIT_SUCCESS;
+}
+
+
+void
 DCMTKSequence
 ::SetDcmSequenceOfItems(DcmSequenceOfItems *seq)
 {
   this->m_DcmSequenceOfItems = seq;
 }
+
 int
 DCMTKSequence
 ::card()
@@ -75,20 +120,6 @@ DCMTKSequence
   target.SetDcmSequenceOfItems(sequence);
   return EXIT_SUCCESS;
 }
-int
-DCMTKSequence
-::GetStack(unsigned short group,
-             unsigned short element,
-             DcmStack *resultStack, bool throwException)
-{
-  DcmTagKey tagkey(group,element);
-  if(this->m_DcmSequenceOfItems->search(tagkey,*resultStack) != EC_Normal)
-    {
-    DCMTKException(<< "Can't find tag " << std::hex << group << " "
-                   << element << std::dec);
-    }
-  return EXIT_SUCCESS;
-}
 
 int
 DCMTKSequence
@@ -97,15 +128,19 @@ DCMTKSequence
                std::string &target,
                bool throwException)
 {
+  DcmTagKey tagkey(group,element);
   DcmStack resultStack;
-  this->GetStack(group,element,&resultStack);
-  DcmCodeString *codeStringElement = dynamic_cast<DcmCodeString *>(resultStack.top());
+  this->GetStack(group,element,resultStack,throwException);
+  DcmCodeString *codeStringElement =
+    dynamic_cast<DcmCodeString *>(resultStack.top());
   if(codeStringElement == 0)
     {
-    DCMTKException(<< "Can't get CodeString Element at tag "
-                   << std::hex << group << " "
+    DCMTKException(<< "Cant find CodeString Element "
+                   << std::hex
+                   << group << " " << std::hex
                    << element << std::dec);
     }
+
   OFString ofString;
   if(codeStringElement->getOFStringArray(ofString) != EC_Normal)
     {
@@ -122,6 +157,55 @@ DCMTKSequence
 }
 
 int
+DCMTKSequence
+::GetElementOB(unsigned short group,
+               unsigned short element,
+               std::string &target,
+               bool throwException)
+{
+  DcmTagKey tagkey(group,element);
+  DcmStack resultStack;
+  this->GetStack(group,element,resultStack,throwException);
+  DcmOtherByteOtherWord *obItem = dynamic_cast<DcmOtherByteOtherWord *>(resultStack.top());
+
+  if(obItem == 0)
+    {
+    DCMTKException(<< "Cant find DecimalString element " << std::hex
+                   << group << " " << std::hex
+                   << element << std::dec);
+    }
+  Uint8 *bytes;
+  obItem->getUint8Array(bytes);
+  Uint32 length = obItem->getLength();
+  std::string val;
+  for(unsigned i = 0; i < length; ++i)
+    {
+    val += bytes[i];
+    }
+  target = val;
+  return EXIT_SUCCESS;
+}
+
+int
+DCMTKSequence
+::GetElementCSorOB(unsigned short group,
+                      unsigned short element,
+                      std::string &target,
+                      bool throwException)
+{
+  if(this->GetElementCS(group,element,target,false) == EXIT_SUCCESS)
+    {
+    return EXIT_SUCCESS;
+    }
+  std::string val;
+  if(this->GetElementOB(group,element,target,throwException) != EXIT_SUCCESS)
+    {
+    return EXIT_FAILURE;
+    }
+  return EXIT_SUCCESS;
+}
+
+int
 DCMTKSequence::
 GetElementFD(unsigned short group,
              unsigned short element,
@@ -129,7 +213,7 @@ GetElementFD(unsigned short group,
              bool throwException)
 {
   DcmStack resultStack;
-  this->GetStack(group,element,&resultStack);
+  this->GetStack(group,element,resultStack);
   DcmFloatingPointDouble *fdItem = dynamic_cast<DcmFloatingPointDouble *>(resultStack.top());
   if(fdItem == 0)
     {
@@ -167,7 +251,7 @@ DCMTKSequence
                bool throwException)
 {
   DcmStack resultStack;
-  this->GetStack(group,element,&resultStack);
+  this->GetStack(group,element,resultStack);
   DcmDecimalString *decimalStringElement = dynamic_cast<DcmDecimalString *>(resultStack.top());
   if(decimalStringElement == 0)
     {
@@ -199,7 +283,7 @@ DCMTKSequence
 {
   DcmTagKey tagkey(group,element);
   DcmStack resultStack;
-  this->GetStack(group,element,&resultStack);
+  this->GetStack(group,element,resultStack);
 
   DcmSequenceOfItems *seqElement = dynamic_cast<DcmSequenceOfItems *>(resultStack.top());
   if(seqElement == 0)
@@ -214,6 +298,23 @@ DCMTKSequence
 
 int
 DCMTKSequence
+::GetElementItem(unsigned short index,
+                 DCMTKItem &target,
+                 bool throwException)
+{
+  DcmItem *itemElement = this->m_DcmSequenceOfItems->getItem(index);
+  if(itemElement == 0)
+    {
+    DCMTKException(<< "Can't get item "
+                   << index
+                   << std::endl);
+    }
+  target.SetDcmItem(itemElement);
+  return EXIT_SUCCESS;
+}
+
+int
+DCMTKSequence
 ::GetElementTM(unsigned short group,
              unsigned short element,
              std::string &target,
@@ -221,7 +322,7 @@ DCMTKSequence
 {
   DcmTagKey tagkey(group,element);
   DcmStack resultStack;
-  this->GetStack(group,element,&resultStack);
+  this->GetStack(group,element,resultStack);
 
   DcmTime *dcmTime = dynamic_cast<DcmTime *>(resultStack.top());
   if(dcmTime == 0)
@@ -255,6 +356,55 @@ DCMTKFileReader
 ::GetFileName() const
 {
   return this->m_FileName;
+}
+
+bool
+DCMTKFileReader
+::CanReadFile(const std::string &filename)
+{
+  DcmFileFormat *DFile = new DcmFileFormat();
+  bool rval(true);
+  if(DFile != 0 && DFile->loadFile(filename.c_str(),
+                                   EXS_Unknown,
+                                   EGL_noChange,
+                                   65536) == EC_Normal)
+    {
+    delete DFile;
+    }
+  else
+    {
+    rval = false;
+    }
+  return rval;
+}
+
+bool
+DCMTKFileReader
+::IsImageFile(const std::string &filename)
+{
+  bool rval = DCMTKFileReader::CanReadFile(filename);
+  if(rval != false)
+    {
+    DicomImage *image = new DicomImage(filename.c_str());
+    if(image != 0)
+      {
+      if(!image->getStatus() != EIS_Normal &&
+         image->getInterData() != 0)
+        {
+        rval = true;
+        }
+      else
+        {
+        rval = false;
+        }
+      delete image;
+      }
+    else
+      {
+      rval = false;
+      }
+    }
+  return rval;
 }
 
 void
@@ -788,14 +938,15 @@ DCMTKFileReader
                    << group << " " << std::hex
                    << element << std::dec);
     }
-  OFString ofString;
-  if(obItem->getOFStringArray(ofString) != EC_Normal)
+  Uint8 *bytes;
+  obItem->getUint8Array(bytes);
+  Uint32 length = obItem->getLength();
+  std::string val;
+  for(unsigned i = 0; i < length; ++i)
     {
-    DCMTKException(<< "Can't get OFString Value at tag "
-                   << std::hex << group << " "
-                   << element << std::dec);
+    val += bytes[i];
     }
-  target = Self::ConvertFromOB(ofString);
+  target = val;
   return EXIT_SUCCESS;
 }
 
@@ -913,26 +1064,57 @@ DCMTKFileReader
 
 int
 DCMTKFileReader
+::GetDirCosArray(double *dircos)
+{
+  DCMTKSequence planeSeq;
+  int rval;
+  if((rval = this->GetElementDS(0x0020,0x0037,6,dircos,false)) != EXIT_SUCCESS)
+    {
+    rval = this->GetElementSQ(0x0020,0x9116,planeSeq,false);
+    if(rval == EXIT_SUCCESS)
+      {
+      rval = planeSeq.GetElementDS(0x0020,0x0037,6,dircos,false);
+      }
+    }
+  if(rval != EXIT_SUCCESS)
+    {
+    rval = this->GetElementSQ(0x5200,0x9229,planeSeq,false);
+    if(rval != EXIT_SUCCESS)
+      {
+      rval = this->GetElementSQ(0X5200,0X9230,planeSeq,false);
+      }
+    if(rval == EXIT_SUCCESS)
+      {
+      DCMTKItem item;
+      rval = planeSeq.GetElementItem(0,item,false);
+      if(rval == EXIT_SUCCESS)
+        {
+        DCMTKSequence subSequence;
+        rval = item.GetElementSQ(0x0020,0x9116,subSequence,false);
+        if(rval == EXIT_SUCCESS)
+          {
+          rval = subSequence.GetElementDS(0x0020,0x0037,6,dircos,false);
+          }
+        }
+      }
+    }
+  return rval;
+}
+int
+DCMTKFileReader
 ::GetDirCosines(vnl_vector<double> &dir1,
                   vnl_vector<double> &dir2,
                   vnl_vector<double> &dir3)
 {
   double dircos[6];
-  DCMTKSequence planeSeq;
-  if(this->GetElementDS(0x0020,0x0037,6,dircos,false) != EXIT_SUCCESS)
+  int rval = this->GetDirCosArray(dircos);
+  if(rval == EXIT_SUCCESS)
     {
-    if(this->GetElementSQ(0x0020,0x9116,planeSeq,false) == EXIT_SUCCESS)
-      {
-      if(planeSeq.GetElementDS(0x0020,0x0037,6,dircos,false) != EXIT_SUCCESS)
-        {
-        return EXIT_FAILURE;
-        }
-      }
+    dir1[0] = dircos[0]; dir1[1] = dircos[1]; dir1[2] = dircos[2];
+    dir2[0] = dircos[3]; dir2[1] = dircos[4]; dir2[2] = dircos[5];
+    dir3 = vnl_cross_3d(dir1,dir2);
     }
-  dir1[0] = dircos[0]; dir1[1] = dircos[1]; dir1[2] = dircos[2];
-  dir2[0] = dircos[3]; dir2[1] = dircos[4]; dir2[2] = dircos[5];
-  dir3 = vnl_cross_3d(dir1,dir2);
-  return EXIT_SUCCESS;
+  return rval;
 }
 
 int
@@ -1065,50 +1247,60 @@ DCMTKFileReader
   // is guaranteed to be in patient space.
   // Imager Pixel spacing is inter-pixel spacing at the sensor front plane
   // Pixel spacing
-  if((this->GetElementDS<double>(0x0028,0x0030,2,_spacing,false) != EXIT_SUCCESS &&
-      // imager pixel spacing
-      this->GetElementDS<double>(0x0018, 0x1164, 2, &_spacing[0],false) != EXIT_SUCCESS &&
-      // Nominal Scanned PixelSpacing
-      this->GetElementDS<double>(0x0018, 0x2010, 2, &_spacing[0],false) != EXIT_SUCCESS) ||
-     // slice thickness
-     this->GetElementDS<double>(0x0018,0x0050,1,&_spacing[2],false) != EXIT_SUCCESS)
+  DCMTKSequence spacingSequence;
+  DCMTKItem item;
+  DCMTKSequence subSequence;
+  // first, shared function groups sequence, then
+  // per-frame groups sequence
+  _spacing[0] = _spacing[1] = _spacing[2] = 0.0;
+  int rval(EXIT_SUCCESS);
+
+  rval = this->GetElementDS<double>(0x0028,0x0030,2,_spacing,false);
+  if(rval != EXIT_SUCCESS)
     {
-    // that method failed, go looking for the spacing sequence
-    DCMTKSequence spacingSequence;
-    DCMTKSequence subSequence;
-    DCMTKSequence subsubSequence;
-    // first, shared function groups sequence, then
-    // per-frame groups sequence
-    if((this->GetElementSQ(0x5200,0x9229,spacingSequence,false) == EXIT_SUCCESS ||
-        this->GetElementSQ(0X5200,0X9230,spacingSequence,false) == EXIT_SUCCESS) &&
-       spacingSequence.GetSequence(0,subSequence,false) == EXIT_SUCCESS &&
-       subSequence.GetElementSQ(0x0028,0x9110,subsubSequence,false) == EXIT_SUCCESS)
+    // imager pixel spacing
+    rval = this->GetElementDS<double>(0x0018, 0x1164, 2, &_spacing[0],false);
+    if(rval != EXIT_SUCCESS)
       {
-      if(subsubSequence.GetElementDS<double>(0x0028,0x0030,2,_spacing,false) != EXIT_SUCCESS)
-        {
-        // Pixel Spacing
-        _spacing[0] = _spacing[1] = 1.0;
-        }
-      if(subsubSequence.GetElementDS<double>(0x0018,0x0050,1,&_spacing[2],false) != EXIT_SUCCESS)
-        {
-        // Slice Thickness
-        _spacing[2] = 1.0;
-        }
+      // Nominal Scanned PixelSpacing
+      rval = this->GetElementDS<double>(0x0018, 0x2010, 2, &_spacing[0],false);
       }
-    else
+    }
+  if(rval == EXIT_SUCCESS)
+    {
+    // slice thickness
+    rval = this->GetElementDS<double>(0x0018,0x0050,1,&_spacing[2],false);
+    }
+  if(rval != EXIT_SUCCESS)
+    {
+    rval = this->GetElementSQ(0x5200,0x9229,spacingSequence,false);
+    if(rval != EXIT_SUCCESS)
       {
-      // punt if no info found.
-      _spacing[0] = _spacing[1] = _spacing[2] = 1.0;
+      rval = this->GetElementSQ(0X5200,0X9230,spacingSequence,false);
+      }
+    if(rval == EXIT_SUCCESS)
+      {
+      if(spacingSequence.GetElementItem(0,item,false) == EXIT_SUCCESS)
+        {
+        if(item.GetElementSQ(0x0028,0x9110,subSequence,false) == EXIT_SUCCESS)
+          {
+          subSequence.GetElementDS<double>(0x0028,0x0030,2,_spacing);
+          subSequence.GetElementDS<double>(0x0018,0x0050,1,&_spacing[2]);
+          }
+        }
       }
     }
   //
   // spacing is row spacing\column spacing
   // but a slice is width-first, i.e. columns increase fastest.
   //
-  spacing[0] = _spacing[1];
-  spacing[1] = _spacing[0];
-  spacing[2] = _spacing[2];
-  return EXIT_SUCCESS;
+  if(rval == EXIT_SUCCESS)
+    {
+    spacing[0] = _spacing[1];
+    spacing[1] = _spacing[0];
+    spacing[2] = _spacing[2];
+    }
+  return rval;
 }
 
 int
@@ -1116,19 +1308,32 @@ DCMTKFileReader
 ::GetOrigin(double *origin)
 {
   DCMTKSequence originSequence;
+  DCMTKItem item;
   DCMTKSequence subSequence;
-  DCMTKSequence subsubSequence;
 
-  if((this->GetElementSQ(0x5200,0x9229,originSequence,false) == EXIT_SUCCESS ||
-      this->GetElementSQ(0X5200,0X9239,originSequence,false) == EXIT_SUCCESS) &&
-     originSequence.GetSequence(0,subSequence,false) == EXIT_SUCCESS &&
-     subSequence.GetElementSQ(0x0028,0x9113,subsubSequence,false) == EXIT_SUCCESS)
+  int rval = this->GetElementDS<double>(0x0020,0x0032,3,origin,false);
+  if(rval != EXIT_SUCCESS)
     {
-    subsubSequence.GetElementDS<double>(0x0020,0x0032,3,origin,true);
-    return EXIT_SUCCESS;
+    rval = this->GetElementSQ(0x5200,0x9229,originSequence,false);
+    if(rval != EXIT_SUCCESS)
+      {
+      rval = this->GetElementSQ(0X5200,0X9230,originSequence,false);
+      }
+    if(rval == EXIT_SUCCESS)
+      {
+      rval = originSequence.GetElementItem(0,item,false);
+      if(rval == EXIT_SUCCESS)
+        {
+        rval = item.GetElementSQ(0x0020,0x9113,subSequence,false);
+        if(rval == EXIT_SUCCESS)
+          {
+          subSequence.GetElementDS<double>(0x0020,0x0032,3,origin,true);
+          rval = EXIT_SUCCESS;
+          }
+        }
+      }
     }
-  this->GetElementDS<double>(0x0020,0x0032,3,origin,true);
-  return EXIT_SUCCESS;
+    return rval;
 }
 
 int
@@ -1159,56 +1364,6 @@ DCMTKFileReader
   DcmDataDictionary &dict = dcmDataDict.wrlock();
   dict.addEntry(entry);
   dcmDataDict.unlock();
-}
-
-unsigned
-DCMTKFileReader
-::ascii2hex(char c)
-{
-  switch(c)
-    {
-    case '0': return 0;
-    case '1': return 1;
-    case '2': return 2;
-    case '3': return 3;
-    case '4': return 4;
-    case '5': return 5;
-    case '6': return 6;
-    case '7': return 7;
-    case '8': return 8;
-    case '9': return 9;
-    case 'a':
-    case 'A': return 10;
-    case 'b':
-    case 'B': return 11;
-    case 'c':
-    case 'C': return 12;
-    case 'd':
-    case 'D': return 13;
-    case 'e':
-    case 'E': return 14;
-    case 'f':
-    case 'F': return 15;
-    }
-  return 255; // should never happen
-}
-
-std::string
-DCMTKFileReader
-::ConvertFromOB(OFString &toConvert)
-{
-  // string format is nn\nn\nn...
-  std::string rval;
-  for(size_t pos = 0; pos < toConvert.size(); pos += 3)
-    {
-    unsigned char convert[2];
-    convert[0] = Self::ascii2hex(toConvert[pos]);
-    convert[1] = Self::ascii2hex(toConvert[pos+1]);
-    unsigned char conv = convert[0] << 4;
-    conv += convert[1];
-    rval.push_back(static_cast<unsigned char>(conv));
-    }
-  return rval;
 }
 
 bool CompareDCMTKFileReaders(DCMTKFileReader *a, DCMTKFileReader *b)

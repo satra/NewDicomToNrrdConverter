@@ -119,29 +119,32 @@ DCMTKSeriesFileNames
     itksys::SystemTools::ConvertToOutputPath(localFilePath.c_str());
     if(!itksys::SystemTools::FileIsDirectory(localFilePath.c_str()))
       {
-      DCMTKFileReader *curReader = new DCMTKFileReader;
-      curReader->SetFileName(localFilePath);
+      if(!DCMTKFileReader::IsImageFile(localFilePath))
+        {
+        continue;
+        }
+      DCMTKFileReader *reader = new DCMTKFileReader;
       try
         {
-        curReader->LoadFile();
+        reader->SetFileName(localFilePath);
+        reader->LoadFile();
         }
       catch(...)
         {
-        // read failed, continue
-        delete curReader;
+        delete reader;
         continue;
         }
       std::string uid;
-      curReader->GetElementUI(0x0020,0x000e,uid);
+      reader->GetElementUI(0x0020,0x000e,uid);
       //
       // if you've restricked it to a particular series instance ID
       if(series == "" || series == uid)
         {
-        allHeaders.push_back(curReader);
+        allHeaders.push_back(reader);
         }
       else
         {
-        delete curReader;
+        delete reader;
         }
       //
       // save the UID at any rate

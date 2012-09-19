@@ -88,6 +88,7 @@ private:
   DCMTKImageIO(const Self &);     //purposely not implemented
   void operator=(const Self &); //purposely not implemented
 
+  void OpenDicomImage();
 
   /*----- internal helpers --------------------------------------------*/
   bool m_UseJPEGCodec;
@@ -100,7 +101,7 @@ private:
 
   double m_RescaleSlope;
   double m_RescaleIntercept;
-
+  std::string m_LastFileName;
 };
 } // end namespace itk
 

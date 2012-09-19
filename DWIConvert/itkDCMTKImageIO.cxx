@@ -72,43 +72,8 @@ bool DCMTKImageIO::CanReadFile(const char *filename)
     itkDebugMacro(<< "No filename specified.");
     }
 
-  bool                   extensionFound = false;
-  std::string::size_type dcmPos = fname.rfind(".dcm");
-  if ( ( dcmPos != std::string::npos )
-       && ( dcmPos == fname.length() - 4 ) )
-    {
-    extensionFound = true;
-    }
-
-  dcmPos = fname.rfind(".DCM");
-  if ( ( dcmPos != std::string::npos )
-       && ( dcmPos == fname.length() - 4 ) )
-    {
-    extensionFound = true;
-    }
-
-  dcmPos = fname.rfind(".dicom");
-  if ( ( dcmPos != std::string::npos )
-       && ( dcmPos == fname.length() - 6 ) )
-    {
-    extensionFound = true;
-    }
-
-  dcmPos = fname.rfind(".DICOM");
-  if ( ( dcmPos != std::string::npos )
-       && ( dcmPos == fname.length() - 6 ) )
-    {
-    extensionFound = true;
-    }
-
-  if ( !extensionFound )
-    {
-    itkDebugMacro(<< "The filename extension is not recognized");
-    return false;
-    }
-
-  // check the content by reading the header only (to start)
-  return true;
+  bool rval = true;
+  return DCMTKFileReader::IsImageFile(filename);
 }
 
 bool DCMTKImageIO::CanWriteFile(const char *name)
@@ -162,26 +127,36 @@ bool DCMTKImageIO::CanWriteFile(const char *name)
   return false;
 }
 
-//------------------------------------------------------------------------------
-void DCMTKImageIO::Read(void *buffer)
+void
+DCMTKImageIO
+::OpenDicomImage()
 {
-  // start simple
+  if(this->m_DImage != 0)
+    {
+    if( !this->m_DicomImageSetByUser &&
+        this->m_FileName != this->m_LastFileName)
+      {
+      delete m_DImage;
+      this->m_DImage = 0;
+      }
+    }
   if( m_DImage == NULL )
     {
     m_DImage = new DicomImage( m_FileName.c_str() );
+    this->m_LastFileName = this->m_FileName;
     }
-  else
+  if(this->m_DImage == 0)
     {
-    if( !m_DicomImageSetByUser )
-      {
-      delete m_DImage;
-      m_DImage = new DicomImage( m_FileName.c_str() );
-      }
+    itkExceptionMacro(<< "Can't create DicomImage for "
+                      << this->m_FileName)
     }
-  if(m_DImage == 0)
-    {
-    return; // throw exception perhaps?
-    }
+}
+//------------------------------------------------------------------------------
+void
+DCMTKImageIO
+::Read(void *buffer)
+{
+  this->OpenDicomImage();
   if (m_DImage->getStatus() == EIS_Normal)
     {
     m_Dimensions[0] = (unsigned int)(m_DImage->getWidth());
@@ -237,9 +212,27 @@ void DCMTKImageIO::Read(void *buffer)
                           ImageIOBase::GetComponentTypeAsString(this->m_ComponentType));
         break;
       }
+    unsigned voxelSize(scalarSize);
+    switch(this->m_PixelType)
+      {
+      case VECTOR:
+        voxelSize *= this->GetNumberOfComponents();
+        break;
+      case RGB:
+        voxelSize *= 3;
+        break;
+      case RGBA:
+        voxelSize *= 4;
+        break;
+      default:
+        break;
+      }
     // get the image in the DCMTK buffer
-    unsigned long len = m_DImage->getOutputDataSize(bitdepth);
-    m_DImage->getOutputData(buffer, len); // ,  bitdepth,0);
+    const DiPixel *interData = m_DImage->getInterData();
+    memcpy(buffer,
+           interData->getData(),
+           interData->getCount() * voxelSize);
+
     }
   else
     {
@@ -309,11 +302,15 @@ void DCMTKImageIO::ReadImageInformation()
     this->m_Spacing[i] = spacing[i];
     }
 
-  if(this->m_DImage != 0)
+  this->OpenDicomImage();
+  const DiPixel *interData = this->m_DImage->getInterData();
+
+  if(interData == 0)
     {
-    delete m_DImage;
+    itkExceptionMacro(<< "Missing Image Data in "
+                      << this->m_FileName);
     }
-  this->m_DImage = new DicomImage(this->m_FileName.c_str());
+
   EP_Representation pixelRep = this->m_DImage->getInterData()->getRepresentation();
   switch(pixelRep)
     {
@@ -339,6 +336,7 @@ void DCMTKImageIO::ReadImageInformation()
       this->m_PixelType = SCALAR; break;
     case 2:
       // hack, supposedly Luminence/Alpha
+      this->SetNumberOfComponents(2);
       this->m_PixelType = VECTOR; break;
       break;
     case 3:
