@@ -12,6 +12,8 @@ find_package(DCMTK REQUIRED)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR} ${CMAKE_MODULE_PATH})
 
+# add libraries possibly missing from library list based
+# on incomplete FindDCMTK.cmake
 foreach(lib oflog ofstd )
   find_library(DCMTK_${lib}_LIBRARY
     ${lib}
@@ -36,9 +38,27 @@ include(${GenerateCLP_USE_FILE})
 
 find_package(LIBICONV REQUIRED)
 
+set(DWIConvert_Support_SRC
+  FSLToNrrd.cxx
+  NrrdToFSL.cxx
+  itkDCMTKImageIO.cxx
+  itkDCMTKImageIOFactory.cxx
+  itkDCMTKSeriesFileNames.cxx
+  itkDCMTKFileReader.cxx
+  )
+
+# several files needed down in ExtenededTesting
+set(DWIConvertTest_SRC)
+foreach(f ${DWIConvert_Support_SRC})
+  list(APPEND DWIConvertTest_SRC
+    ${CMAKE_CURRENT_LIST_DIR}/${f})
+endforeach()
+
 set(CLP DWIConvert)
-set ( ${CLP}_SOURCE ${CLP}.cxx FSLToNrrd.cxx
-  NrrdToFSL.cxx)
+
+set ( ${CLP}_SOURCE ${CLP}.cxx
+  ${DWIConvert_Support_SRC}
+)
 
 generateclp(${CLP}_SOURCE ${CLP}.xml)
 

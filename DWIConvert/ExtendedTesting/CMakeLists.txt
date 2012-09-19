@@ -29,7 +29,9 @@ set(FSLTextFileCompareEXE
   ${DWIConvert_BINARY_DIR}/ExtendedTesting/FSLTextFileCompare)
 
 set (CLP DWIConvert)
-add_executable(${CLP}Test ${CLP}Test.cxx ../FSLToNrrd.cxx ../NrrdToFSL.cxx)
+
+add_executable(${CLP}Test ${CLP}Test.cxx ${DWIConvertTest_SRC})
+
 add_dependencies(${CLP}Test ${CLP})
 target_link_libraries(${CLP}Test ${ITK_LIBRARIES} ${DCMTK_LIBRARIES} oflog ${ZLIB_LIBRARIES} ${LIBICONV_LIBRARIES})
 

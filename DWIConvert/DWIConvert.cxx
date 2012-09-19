@@ -29,8 +29,9 @@ DICOM Data Dictionary: http://medical.nema.org/Dicom/2011/11_06pu.pdf
 
 #include "itkMacro.h"
 #include "itkIntTypes.h"
-#include "itkGDCMSeriesFileNames.h"
-#include "itkGDCMImageIO.h"
+#include "itkDCMTKSeriesFileNames.h"
+#undef HAVE_SSTREAM
+#include "itkDCMTKImageIO.h"
 #include "itkRawImageIO.h"
 #include "itkImage.h"
 #include "itkImageRegionIteratorWithIndex.h"
@@ -40,7 +41,8 @@ DICOM Data Dictionary: http://medical.nema.org/Dicom/2011/11_06pu.pdf
 #include "itksys/Directory.hxx"
 #include "itksys/SystemTools.hxx"
 #include "itksys/Base64.h"
-#include "DCMTKFileReader.h"
+#undef HAVE_SSTREAM
+#include "itkDCMTKFileReader.h"
 #include "djdecode.h"
 #include "StringContains.h"
 #include "DWIConvertUtils.h"
@@ -235,34 +237,34 @@ AddFlagsToDictionary()
                                                                    "Diffusion Direction F/H", 4, 4 , 0,true,
                                                                    "dicomtonrrd");
 
-  DCMTKFileReader::AddDictEntry(GEDictBValue);
-  DCMTKFileReader::AddDictEntry(GEDictXGradient);
-  DCMTKFileReader::AddDictEntry(GEDictYGradient);
-  DCMTKFileReader::AddDictEntry(GEDictZGradient);
+  itk::DCMTKFileReader::AddDictEntry(GEDictBValue);
+  itk::DCMTKFileReader::AddDictEntry(GEDictXGradient);
+  itk::DCMTKFileReader::AddDictEntry(GEDictYGradient);
+  itk::DCMTKFileReader::AddDictEntry(GEDictZGradient);
 
   // relevant Siemens private tags
-  DCMTKFileReader::AddDictEntry(SiemensMosiacParameters);
-  DCMTKFileReader::AddDictEntry(SiemensDictNMosiac);
-  DCMTKFileReader::AddDictEntry(SiemensDictBValue);
-  DCMTKFileReader::AddDictEntry(SiemensDictDiffusionDirection);
-  DCMTKFileReader::AddDictEntry(SiemensDictDiffusionMatrix);
-  DCMTKFileReader::AddDictEntry(SiemensDictShadowInfo);
+  itk::DCMTKFileReader::AddDictEntry(SiemensMosiacParameters);
+  itk::DCMTKFileReader::AddDictEntry(SiemensDictNMosiac);
+  itk::DCMTKFileReader::AddDictEntry(SiemensDictBValue);
+  itk::DCMTKFileReader::AddDictEntry(SiemensDictDiffusionDirection);
+  itk::DCMTKFileReader::AddDictEntry(SiemensDictDiffusionMatrix);
+  itk::DCMTKFileReader::AddDictEntry(SiemensDictShadowInfo);
 
   // relevant Philips private tags
-  DCMTKFileReader::AddDictEntry(PhilipsDictBValue);
-  DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirection);
-  DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionRL);
-  DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionAP);
-  DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionFH);
+  itk::DCMTKFileReader::AddDictEntry(PhilipsDictBValue);
+  itk::DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirection);
+  itk::DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionRL);
+  itk::DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionAP);
+  itk::DCMTKFileReader::AddDictEntry(PhilipsDictDiffusionDirectionFH);
 
 }
 
 /** Free the headers for all dicom files.
  *  also calls the DJDecoder cleanup.
  */
-void FreeHeaders(std::vector<DCMTKFileReader *> &allHeaders)
+void FreeHeaders(std::vector<itk::DCMTKFileReader *> &allHeaders)
 {
-  for(std::vector<DCMTKFileReader *>::iterator it = allHeaders.begin();
+  for(std::vector<itk::DCMTKFileReader *>::iterator it = allHeaders.begin();
       it != allHeaders.end(); ++it)
     {
     delete (*it);
@@ -369,7 +371,8 @@ int main(int argc, char *argv[])
   DJDecoderRegistration::registerCodecs();
 
   typedef itk::ImageSeriesReader< VolumeType > ReaderType;
-  typedef itk::GDCMSeriesFileNames             InputNamesGeneratorType;
+  typedef itk::ImageFileReader< VolumeType >   SingleFileReaderType;
+  typedef itk::DCMTKSeriesFileNames             InputNamesGeneratorType;
 
   AddFlagsToDictionary();
   bool nrrdFormat(true);
@@ -452,15 +455,25 @@ int main(int argc, char *argv[])
         }
     }
 
+  ReaderType::FileNamesContainer inputFileNames;
   //
   // get the names of all slices in the directory
   InputNamesGeneratorType::Pointer inputNames = InputNamesGeneratorType::New();
-  inputNames->SetUseSeriesDetails( true);
-  inputNames->SetLoadSequences( true );
-  inputNames->SetLoadPrivateTags( true );
-  inputNames->SetInputDirectory(inputDicomDirectory);
+  if(itksys::SystemTools::FileIsDirectory(inputDicomDirectory.c_str()))
+    {
+    inputNames->SetUseSeriesDetails( true);
+    inputNames->SetLoadSequences( true );
+    inputNames->SetLoadPrivateTags( true );
+    inputNames->SetInputDirectory(inputDicomDirectory);
+    inputFileNames = inputNames->GetInputFileNames();
+    }
+  else if(itksys::SystemTools::FileExists(inputDicomDirectory.c_str()))
+    // or, if it isn't a directory, maybe it is
+    // a multi-frame DICOM file.
+    {
+    inputFileNames.push_back(inputDicomDirectory);
+    }
 
-  ReaderType::FileNamesContainer inputFileNames = inputNames->GetInputFileNames();
   const size_t nFiles = inputFileNames.size();
 
   if(nFiles < 1)
@@ -469,14 +482,16 @@ int main(int argc, char *argv[])
               << std::endl;
     return EXIT_FAILURE;
     }
+#if 0
+  // this duplicates what the itk::DCMTKSeriesFileNames does, so
+  // comment it out.
   else if(inputFileNames.size() == 1)
     {
     // Use itksys::Directory to open up the given name as a directory.
     inputFileNames.resize( 0 );
     itksys::Directory directory;
     directory.Load( itksys::SystemTools::CollapseFullPath(inputDicomDirectory.c_str()).c_str() );
-    typedef itk::GDCMImageIO ImageIOType;
-    ImageIOType::Pointer gdcmIOTest = ImageIOType::New();
+    typedef itk::DCMTKImageIO ImageIOType;
 
     // for each patient directory
     for ( unsigned int k = 0; k < directory.GetNumberOfFiles(); ++k)
@@ -495,21 +510,22 @@ int main(int argc, char *argv[])
         }
       else if (!itksys::SystemTools::FileIsDirectory( subdirectory.c_str() ))     // load only files
         {
-        if ( gdcmIOTest->CanReadFile(subdirectory.c_str()) )
+        if (itk::DCMTKFileReader::IsImageFile(subdirectory.c_str()))
           {
           inputFileNames.push_back( subdirectory );
           }
         }
       }
     }
+#endif
 
   //////////////////////////////////////////////////
   // load all files in the dicom series.
   //////////////////////////////////////////////////
-  std::vector<DCMTKFileReader *> allHeaders(inputFileNames.size());
+  std::vector<itk::DCMTKFileReader *> allHeaders(inputFileNames.size());
   for(unsigned i = 0; i < allHeaders.size(); ++i)
     {
-    allHeaders[i] = new DCMTKFileReader;
+    allHeaders[i] = new itk::DCMTKFileReader;
     allHeaders[i]->SetFileName(inputFileNames[i]);
     try
       {
@@ -523,12 +539,6 @@ int main(int argc, char *argv[])
       }
     }
 
-#if (ITK_VERSION_MAJOR > 3)
-  // Since GDCM2 can't properly sort the image filenames
-  // do so here
-  // sort in file number order, since GDCMSeries broke that ordering
-  std::sort(allHeaders.begin(),allHeaders.end(),CompareDCMTKFileReaders);
-#endif
   //
   // reorder the filename list
   inputFileNames.resize( 0 );
@@ -619,130 +629,164 @@ int main(int argc, char *argv[])
 
      //////////////////////////////////////////////////
     // 1) Read the input series as an array of slices
-    ReaderType::Pointer reader = ReaderType::New();
-    itk::GDCMImageIO::Pointer gdcmIO = itk::GDCMImageIO::New();
-    reader->SetImageIO( gdcmIO );
-    reader->SetFileNames( inputFileNames );
-    const unsigned int nSlice = inputFileNames.size();
-    try
+    unsigned int nSlice;
+    VolumeType::Pointer readerOutput;
+    itk::DCMTKImageIO::Pointer dcmtkIO = itk::DCMTKImageIO::New();
+    bool multiSliceVolume;
+    if(inputFileNames.size() > 1)
       {
-      reader->Update();
+      ReaderType::Pointer reader = ReaderType::New();
+      reader->SetImageIO( dcmtkIO );
+      reader->SetFileNames( inputFileNames );
+      nSlice
+        = inputFileNames.size();
+      try
+        {
+        reader->Update();
+        }
+      catch (itk::ExceptionObject &excp)
+        {
+        std::cerr << "Exception thrown while reading the series" << std::endl;
+        std::cerr << excp << std::endl;
+        FreeHeaders(allHeaders);
+        return EXIT_FAILURE;
+        }
+      readerOutput = reader->GetOutput();
+      multiSliceVolume = false;
       }
-    catch (itk::ExceptionObject &excp)
+    else
       {
-      std::cerr << "Exception thrown while reading the series" << std::endl;
-      std::cerr << excp << std::endl;
-      FreeHeaders(allHeaders);
-      return EXIT_FAILURE;
+      SingleFileReaderType::Pointer reader =
+        SingleFileReaderType::New();
+      reader->SetImageIO( dcmtkIO );
+      reader->SetFileName( inputFileNames[0] );
+      nSlice = inputFileNames.size();
+      try
+        {
+        reader->Update();
+        }
+      catch (itk::ExceptionObject &excp)
+        {
+        std::cerr << "Exception thrown while reading the series" << std::endl;
+        std::cerr << excp << std::endl;
+        FreeHeaders(allHeaders);
+        return EXIT_FAILURE;
+        }
+      readerOutput = reader->GetOutput();
+      multiSliceVolume = true;
       }
-
 
     // get image dims and resolution
     unsigned short nRows, nCols;
+
     allHeaders[0]->GetElementUS(0x0028,0x0010,nRows);
     allHeaders[0]->GetElementUS(0x0028,0x0011,nCols);
 
+    double sliceSpacing;
     double xRes, yRes;
     {
-    double res[2];
-    allHeaders[0]->GetElementDS(0x0028,0x0030,2,res);
-    xRes = res[0]; yRes = res[1];
+    double spacing[3];
+    allHeaders[0]->GetSpacing(spacing);
+    yRes = spacing[1];
+    xRes = spacing[0];
+    sliceSpacing = spacing[2];
     }
 
     itk::Vector<double,3> ImageOrigin;
     {
     double origin[3];
-    allHeaders[0]->GetElementDS(0x0020, 0x0032, 3,origin);
+    allHeaders[0]->GetOrigin(origin);
     ImageOrigin[0] = origin[0];
     ImageOrigin[1] = origin[1];
     ImageOrigin[2] = origin[2];
     }
 
-    double sliceSpacing;
-    allHeaders[0]->GetElementDS(0x0018, 0x0088, 1, &sliceSpacing);
-
-    // Make a hash of the sliceLocations in order to get the correct
-    // count.  This is more reliable since SliceLocation may not be available.
+    unsigned int numberOfSlicesPerVolume;
     std::map<std::string,int> sliceLocations;
-    std::vector<int> sliceLocationIndicator;
-    std::vector<std::string> sliceLocationStrings;
-
-    sliceLocationIndicator.resize( nSlice );
-
-    for (unsigned int k = 0; k < nSlice; ++k)
+    if(!multiSliceVolume)
       {
-      std::string originString;
+      // Make a hash of the sliceLocations in order to get the correct
+      // count.  This is more reliable since SliceLocation may not be available.
+      std::vector<int> sliceLocationIndicator;
+      std::vector<std::string> sliceLocationStrings;
 
-      allHeaders[k]->GetElementDS(0x0020, 0x0032, originString );
-      sliceLocationStrings.push_back( originString );
-      sliceLocations[originString]++;
-      // std::cerr << inputFileNames[k] << " " << originString << std::endl;
-      }
+      sliceLocationIndicator.resize( nSlice );
 
-    for (unsigned int k = 0; k < nSlice; ++k)
-      {
-      std::map<std::string,int>::iterator it = sliceLocations.find( sliceLocationStrings[k] );
-      sliceLocationIndicator[k] = distance( sliceLocations.begin(), it );
-      }
-
-    unsigned int numberOfSlicesPerVolume=sliceLocations.size();
-    std::cout << "=================== numberOfSlicesPerVolume:" << numberOfSlicesPerVolume << std::endl;
-
-    if ( nSlice >= 2)
-      {
-      if(sliceLocationIndicator[0] != sliceLocationIndicator[1])
+      for (unsigned int k = 0; k < nSlice; ++k)
         {
-        std::cout << "Dicom images are ordered in a volume interleaving way." << std::endl;
+        std::string originString;
+
+        allHeaders[k]->GetElementDS(0x0020, 0x0032, originString );
+        sliceLocationStrings.push_back( originString );
+        sliceLocations[originString]++;
+        // std::cerr << inputFileNames[k] << " " << originString << std::endl;
         }
-      else
+
+      for (unsigned int k = 0; k < nSlice; ++k)
         {
-        std::cout << "Dicom images are ordered in a slice interleaving way." << std::endl;
-        // reorder slices into a volume interleaving manner
-        int Ns = numberOfSlicesPerVolume;
-        int Nv = nSlice / Ns; // do we need to do error check here
+        std::map<std::string,int>::iterator it = sliceLocations.find( sliceLocationStrings[k] );
+        sliceLocationIndicator[k] = distance( sliceLocations.begin(), it );
+        }
 
-        VolumeType::RegionType R = reader->GetOutput()->GetLargestPossibleRegion();
-        R.SetSize(2,1);
-        std::vector<VolumeType::PixelType> v(nSlice);
-        std::vector<VolumeType::PixelType> w(nSlice);
+      numberOfSlicesPerVolume=sliceLocations.size();
+      std::cout << "=================== numberOfSlicesPerVolume:" << numberOfSlicesPerVolume << std::endl;
 
-        itk::ImageRegionIteratorWithIndex<VolumeType> I( reader->GetOutput(), R );
-        for (I.GoToBegin(); !I.IsAtEnd(); ++I)
+      if ( nSlice >= 2)
+        {
+        if(sliceLocationIndicator[0] != sliceLocationIndicator[1])
           {
-          VolumeType::IndexType idx = I.GetIndex();
+          std::cout << "Dicom images are ordered in a volume interleaving way." << std::endl;
+          }
+        else
+          {
+          std::cout << "Dicom images are ordered in a slice interleaving way." << std::endl;
+          // reorder slices into a volume interleaving manner
+          int Ns = numberOfSlicesPerVolume;
+          int Nv = nSlice / Ns; // do we need to do error check here
 
-          // extract all values in one "column"
-          for (unsigned int k = 0; k < nSlice; ++k)
-            {
-            idx[2] = k;
-            v[k] = reader->GetOutput()->GetPixel( idx );
-            }
+          VolumeType::RegionType R = readerOutput->GetLargestPossibleRegion();
+          R.SetSize(2,1);
+          std::vector<VolumeType::PixelType> v(nSlice);
+          std::vector<VolumeType::PixelType> w(nSlice);
 
-          // permute
-          for (int k = 0; k < Nv; ++k)
+          itk::ImageRegionIteratorWithIndex<VolumeType> I( readerOutput, R );
+          for (I.GoToBegin(); !I.IsAtEnd(); ++I)
             {
-            for (int m = 0; m < Ns; ++m)
+            VolumeType::IndexType idx = I.GetIndex();
+
+            // extract all values in one "column"
+            for (unsigned int k = 0; k < nSlice; ++k)
               {
-              w[k*Ns+m] = v[m*Nv+k];
+              idx[2] = k;
+              v[k] = readerOutput->GetPixel( idx );
+              }
+
+            // permute
+            for (int k = 0; k < Nv; ++k)
+              {
+              for (int m = 0; m < Ns; ++m)
+                {
+                w[k*Ns+m] = v[m*Nv+k];
+                }
+              }
+
+            // put things back in order
+            for (unsigned int k = 0; k < nSlice; ++k)
+              {
+              idx[2] = k;
+              readerOutput->SetPixel( idx, w[k] );
               }
             }
-
-          // put things back in order
-          for (unsigned int k = 0; k < nSlice; ++k)
-            {
-            idx[2] = k;
-            reader->GetOutput()->SetPixel( idx, w[k] );
-            }
-          }
 #if 0
-        itk::ImageFileWriter< VolumeType >::Pointer rawWriter = itk::ImageFileWriter< VolumeType >::New();
-        itk::RawImageIO<PixelValueType, 3>::Pointer rawIO = itk::RawImageIO<PixelValueType, 3>::New();
-        rawWriter->SetImageIO( rawIO );
-        rawIO->SetByteOrderToLittleEndian();
-        rawWriter->SetFileName( "dwiconvert.raw");
-        rawWriter->SetInput( reader->GetOutput() );
-        rawWriter->Update();
+          itk::ImageFileWriter< VolumeType >::Pointer rawWriter = itk::ImageFileWriter< VolumeType >::New();
+          itk::RawImageIO<PixelValueType, 3>::Pointer rawIO = itk::RawImageIO<PixelValueType, 3>::New();
+          rawWriter->SetImageIO( rawIO );
+          rawIO->SetByteOrderToLittleEndian();
+          rawWriter->SetFileName( "dwiconvert.raw");
+          rawWriter->SetInput( readerOutput );
+          rawWriter->Update();
 #endif
+          }
         }
       }
     itk::Matrix<double,3,3> MeasurementFrame;
@@ -757,7 +801,7 @@ int main(int argc, char *argv[])
     {
     double dirCosArray[6];
     // 0020,0037 -- Image Orientation (Patient)
-    allHeaders[0]->GetElementDS(0x0020, 0x0037, 6, dirCosArray);
+    allHeaders[0]->GetDirCosArray(dirCosArray);
     double *dirCosArrayP = dirCosArray;
     for(unsigned i = 0; i < 2; ++i)
       {
@@ -876,7 +920,7 @@ int main(int argc, char *argv[])
       std::cout << "Mosaic in " << mMosaic << " X " << nMosaic
                 << " blocks (total number of blocks = " << valueArray[0] << ")." << std::endl;
       }
-    else if ( StringContains(vendor,"PHILIPS") && nSlice > 1)
+    else if (!multiSliceVolume &&  StringContains(vendor,"PHILIPS") && nSlice > 1)
       // so this is not a philips multi-frame single dicom file
       {
       MeasurementFrame=LPSDirCos; //Philips oblique scans list the gradients with respect to the ImagePatientOrientation.
@@ -918,7 +962,7 @@ int main(int argc, char *argv[])
       {
       std::cout << " Warning: vendor type not valid" << std::endl;
       // treate the dicom series as an ordinary image and write a straight nrrd file.
-      WriteVolume<VolumeType>( reader->GetOutput(), outputVolumeHeaderName );
+      WriteVolume<VolumeType>( readerOutput, outputVolumeHeaderName );
       FreeHeaders(allHeaders);
       return EXIT_SUCCESS;
       }
@@ -1110,7 +1154,7 @@ int main(int argc, char *argv[])
                 //std::cout << "Looking for  0018|9089 in sequence 0018,9076" << std::endl;
                 // gdcm::SeqEntry *
                 // DiffusionSeqEntry=allHeaders[k]->GetSeqEntry(0x0018,0x9076);
-                DCMTKSequence DiffusionSeqEntry;
+                itk::DCMTKSequence DiffusionSeqEntry;
                 allHeaders[k]->GetElementSQ(0x0018,0x9076,DiffusionSeqEntry);
                 // const unsigned int
                 // n=DiffusionSeqEntry->GetNumberOfSQItems();
@@ -1168,8 +1212,8 @@ int main(int argc, char *argv[])
         DiffusionVectors.clear();
         useVolume.clear();
 
-        DCMTKSequence perFrameFunctionalGroup;
-        DCMTKSequence innerSeq;
+        itk::DCMTKSequence perFrameFunctionalGroup;
+        itk::DCMTKSequence innerSeq;
         double dwbValue;
 
         allHeaders[0]->GetElementSQ(0x5200,0x9230,perFrameFunctionalGroup);
@@ -1178,25 +1222,22 @@ int main(int argc, char *argv[])
         for(unsigned long i = 0;
             i < static_cast<unsigned long>(perFrameFunctionalGroup.card()); ++i)
           {
-          DCMTKSequence curSequence;
-          perFrameFunctionalGroup.GetSequence(i,curSequence);
+          itk::DCMTKItem curItem;
+          perFrameFunctionalGroup.GetElementItem(i,curItem);
           // index slice locations with string origin
           {
-          DCMTKSequence originSeq;
-          curSequence.GetElementSQ(0x0020, 0x9113,originSeq);
-          originSeq.GetSequence(0,innerSeq);
+          itk::DCMTKSequence originSeq;
+          curItem.GetElementSQ(0x0020, 0x9113,originSeq);
           std::string originString;
-          innerSeq.GetElementDS(0x0020,0x0032,originString);
+          originSeq.GetElementDS(0x0020,0x0032,originString);
           ++sliceLocations[originString];
           }
 
+          itk::DCMTKSequence mrDiffusionSeq;
+          curItem.GetElementSQ(0x0018,0x9117,mrDiffusionSeq);
+
           std::string dirValue;
-          {
-          DCMTKSequence mrDiffusionSeq;
-          curSequence.GetElementSQ(0x0018,0x9117,mrDiffusionSeq);
-          mrDiffusionSeq.GetSequence(0,innerSeq);
-          innerSeq.GetElementCS(0x0018,0x9075,dirValue);
-          }
+          mrDiffusionSeq.GetElementCSorOB(0x0018,0x9075,dirValue);
 
           if ( StringContains(dirValue,"ISO") )
             {
@@ -1225,14 +1266,11 @@ int main(int argc, char *argv[])
           else
             {
             useVolume.push_back(1);
-            innerSeq.GetElementFD(0x0018,0x9087,dwbValue);
-
-            DCMTKSequence volSeq;
-            innerSeq.GetElementSQ(0x0018, 0x9076,volSeq);
-            DCMTKSequence innerSeq2;
-            volSeq.GetSequence(0,innerSeq2);
-            double *dwgVal;
-            innerSeq2.GetElementFD(0x0018,0x9089,dwgVal);
+            mrDiffusionSeq.GetElementDSorOB(0x0018,0x9087,dwbValue);
+            itk::DCMTKSequence volSeq;
+            mrDiffusionSeq.GetElementSQ(0x0018, 0x9076,volSeq);
+            double dwgVal[3];
+            volSeq.GetElementDSorOB<double>(0x0018,0x9089,3,dwgVal);
             std::vector<double> v(3);
             v[0] = dwgVal[0];
             v[1] = dwgVal[1];
@@ -1514,7 +1552,7 @@ int main(int argc, char *argv[])
     if ( StringContains(vendor, "GE") ||
          (StringContains(vendor, "SIEMENS") && !SliceMosaic) )
       {
-      dmImage = reader->GetOutput();
+      dmImage = readerOutput;
       }
     else if ( StringContains(vendor, "SIEMENS") && SliceMosaic)
       {
@@ -1534,7 +1572,7 @@ int main(int argc, char *argv[])
                          nCols*(NRRDSpaceDirection[2][1]) +
                          nSliceInVolume*(NRRDSpaceDirection[2][2]))/2.0;
 
-      VolumeType::Pointer img = reader->GetOutput();
+      VolumeType::Pointer img = readerOutput;
 
       VolumeType::RegionType region = img->GetLargestPossibleRegion();
       VolumeType::SizeType size = region.GetSize();
@@ -1612,7 +1650,7 @@ int main(int argc, char *argv[])
     else if (StringContains(vendor, "PHILIPS"))
       {
 #if 0
-      VolumeType::Pointer img = reader->GetOutput();
+      VolumeType::Pointer img = readerOutput;
 
       VolumeType::RegionType region = img->GetLargestPossibleRegion();
       VolumeType::SizeType size = region.GetSize();
@@ -1686,12 +1724,12 @@ int main(int argc, char *argv[])
       // though I was actually supposed to write it out to the NRRD
       // file, when in fact the image with skipped volumes is built
       // but never used in the original program.
-      dmImage = reader->GetOutput();
+      dmImage = readerOutput;
       }
     else
       {
       std::cout << "Warning:  invalid vendor found." << std::endl;
-      WriteVolume<VolumeType>( reader->GetOutput(), outputVolumeHeaderName );
+      WriteVolume<VolumeType>( readerOutput, outputVolumeHeaderName );
       FreeHeaders(allHeaders);
       return EXIT_SUCCESS;
       }
@@ -1932,7 +1970,7 @@ int main(int argc, char *argv[])
           header << "DWMRI_gradient_" << std::setw(4) << std::setfill('0') << imageCount << ":="
                  << gradientVectors[imageCount][0] << "   "
                  << gradientVectors[imageCount][1] << "   "
-                 << gradientVectors[imageCount][2] 
+                 << gradientVectors[imageCount][2]
                  << std::endl;
           }
         }
