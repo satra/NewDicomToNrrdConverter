@@ -34,6 +34,8 @@ DICOM Data Dictionary: http://medical.nema.org/Dicom/2011/11_06pu.pdf
 #include "itkDCMTKImageIO.h"
 #include "itkRawImageIO.h"
 #include "itkImage.h"
+#include "itkImageRegionConstIterator.h"
+#include "itkImageRegionIterator.h"
 #include "itkImageRegionIteratorWithIndex.h"
 #include "itkImageFileReader.h"
 #include "itkImageFileWriter.h"
@@ -321,6 +323,14 @@ Write4DVolume( VolumeType::Pointer &img, int nVolumes, const std::string &fname 
   memcpy(img4D->GetBufferPointer(),
          img->GetBufferPointer(),
          img->GetLargestPossibleRegion().GetNumberOfPixels() * sizeof(PixelValueType));
+#if 0
+  {
+  itk::ImageFileWriter< VolumeType >::Pointer writer = itk::ImageFileWriter< VolumeType >::New();
+  writer->SetFileName( "dwi3dconvert.nii.gz");
+  writer->SetInput( img );
+  writer->Update();
+  }
+#endif
 
   itk::ImageFileWriter< Volume4DType >::Pointer imgWriter =
     itk::ImageFileWriter< Volume4DType >::New();
@@ -653,6 +663,12 @@ int main(int argc, char *argv[])
         }
       readerOutput = reader->GetOutput();
       multiSliceVolume = false;
+#if 0
+          itk::ImageFileWriter< VolumeType >::Pointer writer = itk::ImageFileWriter< VolumeType >::New();
+          writer->SetFileName( "dwiconvert.nrrd");
+          writer->SetInput( readerOutput );
+          writer->Update();
+#endif
       }
     else
       {
