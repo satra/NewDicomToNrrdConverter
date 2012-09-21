@@ -351,6 +351,52 @@ Write4DVolume( VolumeType::Pointer &img, int nVolumes, const std::string &fname 
   return EXIT_SUCCESS;
 }
 
+void
+DeInterleaveVolume(VolumeType::Pointer &volume,
+                   size_t SlicesPerVolume,
+                   size_t NSlices)
+{
+  size_t NVolumes = NSlices / SlicesPerVolume;
+
+  VolumeType::RegionType R = volume->GetLargestPossibleRegion();
+  R.SetSize(2,1);
+  std::vector<VolumeType::PixelType> v(NSlices);
+  std::vector<VolumeType::PixelType> w(NSlices);
+
+  itk::ImageRegionIteratorWithIndex<VolumeType> I( volume, R );
+  // permute the slices by extracting the 1D array of voxels for
+  // a particular {x,y} position, then re-ordering the voxels such
+  // that all the voxels for a particular volume are adjacent
+  for (I.GoToBegin(); !I.IsAtEnd(); ++I)
+    {
+    VolumeType::IndexType idx = I.GetIndex();
+
+    // extract all values in one "column"
+    for (unsigned int k = 0; k < NSlices; ++k)
+      {
+      idx[2] = k;
+      v[k] = volume->GetPixel( idx );
+      }
+
+    // permute
+    for (int k = 0; k < NVolumes; ++k)
+      {
+      for (int m = 0; m < SlicesPerVolume; ++m)
+        {
+        w[(k * SlicesPerVolume) + m] = v[ (m * NVolumes) + k];
+        }
+      }
+
+    // put things back in order
+    for (unsigned int k = 0; k < NSlices; ++k)
+      {
+      idx[2] = k;
+      volume->SetPixel( idx, w[k] );
+      }
+    }
+
+}
+
 int main(int argc, char *argv[])
 {
   PARSE_ARGS;
@@ -757,42 +803,7 @@ int main(int argc, char *argv[])
           {
           std::cout << "Dicom images are ordered in a slice interleaving way." << std::endl;
           // reorder slices into a volume interleaving manner
-          int Ns = numberOfSlicesPerVolume;
-          int Nv = nSlice / Ns; // do we need to do error check here
-
-          VolumeType::RegionType R = readerOutput->GetLargestPossibleRegion();
-          R.SetSize(2,1);
-          std::vector<VolumeType::PixelType> v(nSlice);
-          std::vector<VolumeType::PixelType> w(nSlice);
-
-          itk::ImageRegionIteratorWithIndex<VolumeType> I( readerOutput, R );
-          for (I.GoToBegin(); !I.IsAtEnd(); ++I)
-            {
-            VolumeType::IndexType idx = I.GetIndex();
-
-            // extract all values in one "column"
-            for (unsigned int k = 0; k < nSlice; ++k)
-              {
-              idx[2] = k;
-              v[k] = readerOutput->GetPixel( idx );
-              }
-
-            // permute
-            for (int k = 0; k < Nv; ++k)
-              {
-              for (int m = 0; m < Ns; ++m)
-                {
-                w[k*Ns+m] = v[m*Nv+k];
-                }
-              }
-
-            // put things back in order
-            for (unsigned int k = 0; k < nSlice; ++k)
-              {
-              idx[2] = k;
-              readerOutput->SetPixel( idx, w[k] );
-              }
-            }
+          DeInterleaveVolume(readerOutput,numberOfSlicesPerVolume,nSlice);
 #if 0
           itk::ImageFileWriter< VolumeType >::Pointer rawWriter = itk::ImageFileWriter< VolumeType >::New();
           itk::RawImageIO<PixelValueType, 3>::Pointer rawIO = itk::RawImageIO<PixelValueType, 3>::New();
@@ -1235,19 +1246,27 @@ int main(int argc, char *argv[])
         allHeaders[0]->GetElementSQ(0x5200,0x9230,perFrameFunctionalGroup);
         int nItems = perFrameFunctionalGroup.card();
 
+        // have to determine if volume slices are interleaved
+        std::string origins[2];
+
         for(unsigned long i = 0;
             i < static_cast<unsigned long>(perFrameFunctionalGroup.card()); ++i)
           {
           itk::DCMTKItem curItem;
           perFrameFunctionalGroup.GetElementItem(i,curItem);
+
           // index slice locations with string origin
-          {
           itk::DCMTKSequence originSeq;
           curItem.GetElementSQ(0x0020, 0x9113,originSeq);
           std::string originString;
           originSeq.GetElementDS(0x0020,0x0032,originString);
           ++sliceLocations[originString];
-          }
+          // save origin of first 2 slices to compare and see if the
+          // volume is interleaved.
+          if(i < 2)
+            {
+            origins[i] = originString;
+            }
 
           itk::DCMTKSequence mrDiffusionSeq;
           curItem.GetElementSQ(0x0018,0x9117,mrDiffusionSeq);
@@ -1309,6 +1328,15 @@ int main(int argc, char *argv[])
           }
 
         numberOfSlicesPerVolume=sliceLocations.size();
+
+        // de-interleave slices if the origins of the first 2 slices
+        // are the same.
+        if(origins[0] == origins[1])
+          {
+          // interleaved image
+          DeInterleaveVolume(readerOutput,numberOfSlicesPerVolume,perFrameFunctionalGroup.card());
+          }
+
 
         std::cout << "LPS Matrix: " << std::endl << LPSDirCos << std::endl;
         std::cout << "Volume Origin: " << std::endl << ImageOrigin[0] << ","
